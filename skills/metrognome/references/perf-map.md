@@ -1,13 +1,13 @@
 # Perf Map 3D
 
-A static, device-free scan of a RN repo that produces an interactive 3D graph and a Top-3 of the worst perf offenders. Nodes = source modules; edges = import relationships. Node **size = perf debt**, **color = severity**. The pipeline:
+Static, device-free scan of a RN repo → interactive 3D graph + Top-3 worst perf offenders. Nodes = source modules; edges = imports. Node **size = perf debt**, **color = severity**. Pipeline:
 
 ```
 perf_scan.mjs  <repo>  -> graph.json        (Babel AST + detectors + scoring)
 build_perf_map.mjs  graph.json  -> perf-map.html   (vendored 3d-force-graph + data, inlined, offline)
 ```
 
-`build_perf_map.mjs --open` opens it; click any node for the flaw + `file:line` + Callstack guide. All tuning lives in `perf_scan.mjs`'s `CONFIG` block.
+`build_perf_map.mjs --open` opens it; click any node for flaw + `file:line` + Callstack guide. All tuning is in `perf_scan.mjs`'s `CONFIG` block.
 
 ## The detectors
 
@@ -26,35 +26,35 @@ build_perf_map.mjs  graph.json  -> perf-map.html   (vendored 3d-force-graph + da
 
 ## Scoring — and why signal beats noise
 
-The make-or-break property is **signal vs noise**. RN static heuristics fire constantly in healthy code (a real 1465-module app yields ~1500 inline-prop and ~1400 barrel hits). A naive scorer lights up every node red and is useless. Four mechanisms keep the map honest — tuned against bluesky's `social-app` (1465 modules), which lands at **~19 hotspots (~1%)**, all structural:
+**Signal vs noise** is the core design invariant. RN static heuristics fire constantly in healthy code (a 1465-module app yields ~1500 inline-prop and ~1400 barrel hits) — a naive scorer lights every node red. Four mechanisms keep the map honest, tuned against bluesky's `social-app` to land at **~19 hotspots (~1%)** out of 1465 modules, all structural:
 
-1. **Severity weights.** CRITICAL 10 · HIGH 5 · MEDIUM 1.5 · LOW 0.4. The common-but-harmless detectors (inline props, barrels, image dims) are LOW by design.
+1. **Severity weights.** CRITICAL 10 · HIGH 5 · MEDIUM 1.5 · LOW 0.4. Common-but-harmless detectors (inline props, barrels, image dims) are LOW by design.
 
-2. **Per-detector diminishing returns.** Past `diminishAfter` (3) of the *same* detector in a file, extra hits add only `log2`. A config file with 150 idiomatic inline `options={{}}` props is not 150× worse than one with 2 — without this it would manufacture a fake hotspot. Distinct detectors still stack normally; rare structural findings keep full weight.
+2. **Per-detector diminishing returns.** Past `diminishAfter` (3) hits of the same detector per file, extra hits add only `log2` — 150 inline props ≠ 150× worse. Distinct detectors stack normally; structural findings keep full weight.
 
-3. **Structural-only centrality.** debt = `structuralRaw · centralityMult + cosmeticRaw`, where `centralityMult = 1 + k·log2(1+fanIn) + (hasList ? listBonus : 0)`. Centrality (import fan-in) amplifies **only** MEDIUM+ structural debt — a real re-render bug in a hub imported 50× genuinely matters more than in a leaf. It does **not** amplify LOW noise, so a popular component full of inline props doesn't become a hotspot just for being popular. `log2` (not linear) keeps a 500-fan-in navigation hub from dwarfing everything (linear gave debt 262 vs 44; log gives a sane ~2–3× boost).
+3. **Structural-only centrality.** debt = `structuralRaw · centralityMult + cosmeticRaw`, where `centralityMult = 1 + k·log2(1+fanIn) + (hasList ? listBonus : 0)`. Fan-in amplifies **only** MEDIUM+ debt (a re-render bug in a hub imported 50× matters more than in a leaf) but does **not** amplify LOW noise. `log2` prevents a 500-fan-in hub from dwarfing everything (linear: debt 262 vs 44; log: ~2–3× boost).
 
-4. **Combined gate.** A node is a **hotspot** iff `debt ≥ hotspotDebt (6)` **OR** it has any HIGH/CRITICAL finding. The severity arm guarantees a lone memory leak or missing-`getItemLayout` in a leaf is never missed; the debt arm catches accumulated MEDIUM/LOW clusters. Everything else renders small + grey, with its findings still visible on hover/click — **low-severity hits aggregate quietly, they don't dominate the view.**
+4. **Combined gate.** Hotspot iff `debt ≥ hotspotDebt (6)` **OR** any HIGH/CRITICAL finding. Severity arm: a lone memory leak or missing `getItemLayout` in a leaf is never missed. Debt arm: catches accumulated MEDIUM/LOW clusters. Everything else renders small + grey, findings visible on hover/click — **low-severity hits aggregate quietly.**
 
-> If a scan lights up too much on a given repo, raise `hotspotDebt` (or lower a severity) in `CONFIG` — don't lower your standards in the report. Tune against the real target repo, not the seeded `examples/sample-rn-app` fixture (the fixture is circular by construction: it contains exactly what the detectors hunt, so it only proves the detectors *fire*, not that they're selective).
+> If a scan lights up too much, raise `hotspotDebt` (or lower a severity) in `CONFIG`. Tune against the real target repo, not `examples/sample-rn-app` — the fixture is circular by construction (it contains exactly what the detectors hunt), proving they *fire*, not that they're selective.
 
 ## Display filter & search
 
-The Perf Map renders only nodes with `debt ≥ displayMinDebt` (CONFIG default **2**) — dropping the near-zero cold cloud while keeping all structural and accumulated debt. This is **adjustable live** via the `min debt` number control in the search panel (top-left, below the hero banner); links whose source or target falls below the threshold are also dropped (preventing phantom nodes from dangling edges). Nodes with debt 2–6 that aren't hotspots still render grey, so the "below gate" legend entry holds. The header `modules` stat always shows the true scanned count; the `N / M modules` counter in the panel reflects what's currently rendered.
+Only nodes with `debt ≥ displayMinDebt` (default **2**) render — dropping near-zero noise while keeping structural and accumulated debt. **Adjustable live** via the `min debt` control (search panel, top-left); links below the threshold drop too. Non-hotspot nodes with debt 2–6 render grey. The header `modules` stat shows the true scanned count; `N / M modules` reflects what's rendered.
 
-A **search box** (above the min-debt control) filters the rendered set by filename. Results are ranked by name-relevance (exact > starts-with > contains, debt as tiebreak) and show the top 5 matches. Clicking a result or pressing Enter flies the 3D camera to that node and opens its detail panel. The `window.__perfmap` handle exposes `focusNode`, `applyThreshold`, and `rankMatches` for automated verification.
+A **search box** (above min-debt) filters by filename (exact > starts-with > contains, debt as tiebreak), top 5 matches. Clicking or Enter flies the 3D camera to that node. `window.__perfmap` exposes `focusNode`, `applyThreshold`, and `rankMatches` for automated verification.
 
 ## Import resolution (correctness, not cosmetics)
 
-Real RN apps import almost everything through **path aliases** (`#/…`, `@/…`), not `../`. `perf_scan.mjs` reads `tsconfig.json`/`jsconfig.json` `compilerOptions.paths` (walking up from the scan root) to resolve them. Without this the dependency graph is a disconnected cloud and fan-in (hence centrality) is meaningless — on bluesky, alias resolution took the graph from 814 edges to 8862 and exposed real hubs (fan-in up to 582). If `aliases (none found)` prints and the graph looks sparse, the repo may use a babel `module-resolver` alias not mirrored in tsconfig — add it to the tsconfig paths or extend `loadAliases`.
+Real RN apps import almost everything through **path aliases** (`#/…`, `@/…`), not `../`. `perf_scan.mjs` reads `tsconfig.json`/`jsconfig.json` `compilerOptions.paths` from the scan root up. Without this the graph is a disconnected cloud and centrality is meaningless — on bluesky: 814 edges → 8862, fan-in up to 582. If `aliases (none found)` prints and the graph looks sparse, the repo likely has a babel `module-resolver` alias not mirrored in tsconfig — add it to tsconfig paths or extend `loadAliases`.
 
 ## Top-3 emission
 
-`graph.json` includes a `top3` array (also printed by `perf_scan.mjs`). Each entry is a ready-to-paste Autoresearch command — present them verbatim:
+`graph.json` includes a `top3` array (also printed by `perf_scan.mjs`) of ready-to-paste Autoresearch commands. Present them verbatim:
 
 ```
 1. [debt 19.31] /metrognome listing --target Gallery
      FlatList/SectionList without getItemLayout (FlatList) at components/images/Gallery/index.tsx:252
 ```
 
-The `--target` is derived from the component/screen name (for `index.*` files, the parent folder), and the preset comes from the dominant (highest-severity) finding. Pasting one straight into Autoresearch closes the diagnose→fix loop.
+`--target` is the component/screen name (for `index.*` files, the parent folder); the preset comes from the dominant finding. Pasting one into Autoresearch closes the diagnose→fix loop.

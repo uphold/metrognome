@@ -1,0 +1,95 @@
+# CI covers only the offline chain:
+#   - gate math self-test (stats.mjs)
+#   - doctor parser self-test (doctor.mjs)
+#   - offline smoke chain: perf_scan → build_perf_map → build_run_report
+#   - JSON validation of all plugin manifests
+#   - official plugin manifest validation (claude plugin validate --strict)
+#
+# The live path (metro-mcp / real device / MCP runtime) cannot be CI-tested
+# because it requires a running Metro bundler, a connected simulator or device,
+# and an active Claude Code session.
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Gate math self-test (stats.mjs)
+        run: npm run stats:test
+
+      # Pinned contract — must be called exactly as written.
+      - name: Doctor parser self-test (doctor.mjs)
+        run: node skills/metrognome/scripts/doctor.mjs --self-test
+
+      - name: Offline smoke chain — perf_scan
+        run: node skills/metrognome/scripts/perf_scan.mjs examples/sample-rn-app --out /tmp/graph.json --quiet
+
+      - name: Offline smoke chain — build_perf_map
+        run: node skills/metrognome/scripts/build_perf_map.mjs /tmp/graph.json --out /tmp/perf-map.html
+
+      - name: Offline smoke chain — build_run_report
+        run: node skills/metrognome/scripts/build_run_report.mjs skills/metrognome/assets/run-state.sample.json --out /tmp/report.html
+
+      # Assert each output file exists and is non-empty.
+      # Debt scores are NOT asserted — the fixture (examples/sample-rn-app) is circular
+      # (it contains exactly what the detectors hunt) so scores are not meaningful.
+      - name: Assert smoke-chain outputs are non-empty
+        run: |
+          test -s /tmp/graph.json     || (echo "graph.json is missing or empty"    && exit 1)
+          test -s /tmp/perf-map.html  || (echo "perf-map.html is missing or empty" && exit 1)
+          test -s /tmp/report.html    || (echo "report.html is missing or empty"   && exit 1)
+
+      - name: Validate JSON files
+        run: |
+          node -e "
+            const fs = require('fs');
+            const files = [
+              '.claude-plugin/plugin.json',
+              '.claude-plugin/marketplace.json',
+              '.mcp.json',
+              'package.json',
+              'skills/metrognome/assets/run-state.sample.json',
+            ];
+            let ok = true;
+            for (const f of files) {
+              try {
+                JSON.parse(fs.readFileSync(f, 'utf8'));
+                console.log('  ok  ' + f);
+              } catch (e) {
+                console.error('FAIL  ' + f + ': ' + e.message);
+                ok = false;
+              }
+            }
+            if (!ok) process.exit(1);
+          "
+
+      # Static manifest validation via the official Claude Code CLI.
+      # No auth needed — `plugin validate` is offline. --strict treats
+      # warnings (e.g. a missing marketplace description) as errors.
+      - name: Official plugin validation (strict)
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          claude plugin validate . --strict

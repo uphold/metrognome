@@ -1,24 +1,22 @@
 # Performance Memory
 
-metrognome accumulates a terse per-repo log of every perf gap it encounters across sessions, and routes future work from those priors. That's what turns a generic optimizer into *this app's* optimizer.
+metrognome accumulates a per-repo log of every perf gap, routing future work from priors — turning a generic optimizer into *this app's* optimizer.
 
-- **Lives in the target repo**, not the plugin: `.metrognome/perf-memory.md`. Committed **with the app**, so the whole team inherits the accumulated knowledge. (The plugin is shared/open-source; the memory is per-project.)
-- **Token-frugal:** one line per gap. Mirrors the index-style discipline of a good `MEMORY.md` and the ≤4-line catalog entries of `webapp-perf-playbook` — terse enough that reading the whole file at the start of a run is cheap.
+- **Lives in `.metrognome/perf-memory.md`** in the target repo, not the plugin. Committed **with the app** so the whole team inherits the knowledge.
+- **Token-frugal:** one line per gap — cheap to read at the start of any run.
 
 ## Entry format
-
-One line per gap:
 
 ```
 area/file · symptom · suspected cause · preset · status · ref
 ```
 
-- **area/file** — `screens/FeedScreen.tsx` or a component name.
-- **symptom** — what was observed (`18 dropped frames on scroll`, `heap +12MB / 10 cycles`).
+- **area/file** — `screens/FeedScreen.tsx` or component name.
+- **symptom** — observed (`18 dropped frames on scroll`, `heap +12MB / 10 cycles`).
 - **suspected cause** — short hypothesis (`FlatList missing getItemLayout`).
 - **preset** — `first-load | listing | memory-leaks | bundle-size | re-renders`.
-- **status** — `open` (found, not yet fixed) · `fixed` (kept, measured) · `reverted` (tried, didn't clear the gate — don't retry).
-- **ref** — commit SHA or ledger filename backing the claim.
+- **status** — `open` · `fixed` (kept, measured) · `reverted` (tried, didn't clear the gate — don't retry).
+- **ref** — commit SHA or ledger filename.
 
 ### Examples
 
@@ -31,32 +29,31 @@ App.tsx · +220ms TTI · synchronous moment import at entry · first-load · fix
 
 ## Read path (leverage priors)
 
-At the **start of any metrognome run, and any perf-related work** in a `.metrognome/`-tracked repo, read this file first. It tells you:
-- the known hotspots (skip rediscovery),
-- what already worked (`fixed` → the route for this repo is proven),
-- what to **not** retry (`reverted` → it didn't clear the gate here; don't burn a cycle on it).
+At the **start of any metrognome run, and any perf-related work** in a `.metrognome/`-tracked repo, read this file first:
+- known hotspots → skip rediscovery,
+- `fixed` entries → the proven route for this repo,
+- `reverted` entries → do **not** retry (didn't clear the gate here).
 
-A repo prior layered over the generic Callstack guides = faster, sharper routing. Once populated, a new symptom is matched against memory and the skill often already knows the preset + fix that worked here — that's the "centralized performance agent" payoff.
+Repo priors + Callstack guides = faster, sharper routing. Once populated, a new symptom often maps directly to a known preset + fix.
 
 ## Write path (accumulate)
 
-Append a one-line entry whenever:
-- a gap is **discovered** (Perf Map hotspot, an autoresearch baseline, or ad-hoc perf work) → `status: open`,
-- a fix is **validated** (KEEP) → `status: fixed`, with the commit and the measured delta in the ref,
-- a fix is **reverted** (didn't clear the gate) → `status: reverted`, with the ledger ref.
+Append a line whenever:
+- a gap is **discovered** → `status: open`,
+- a fix is **validated** (KEEP) → `status: fixed`, commit + measured delta in the ref,
+- a fix is **reverted** (didn't clear the gate) → `status: reverted`, ledger ref.
 
-Distill a verbose Ledger entry into a single durable Memory line — the Ledger holds the full distributions; the Memory holds the lesson.
+Distill a verbose Ledger entry into one Memory line — the Ledger holds the full distributions; the Memory holds the lesson.
 
 ## Compaction policy
 
-Keep the file small and high-signal:
-- **Merge duplicates** — repeated mentions of the same file/symptom collapse to the latest status.
-- **Archive resolved+verified** — move `fixed` (and stale `reverted`) lines older than the active work to `.metrognome/archive/perf-memory-<date>.md`. Keep `open` items and recent results in the live file.
-- Trigger compaction when the live file exceeds ~50 lines or feels noisy. The live file should read like a current to-do + proven-route list, not a full history.
+- **Merge duplicates** — same file/symptom collapses to the latest status.
+- **Archive resolved+verified** — move `fixed` (and stale `reverted`) lines to `.metrognome/archive/perf-memory-<date>.md`; keep `open` items and recent results in the live file.
+- Compact when the live file exceeds ~50 lines — it should read like a current to-do + proven-route list, not a full history.
 
 ## Bootstrap header
 
-Doctor stamps a new `.metrognome/perf-memory.md` with this header:
+Doctor stamps a new `.metrognome/perf-memory.md` with:
 
 ```markdown
 # Performance Memory — <repo name>
@@ -67,3 +64,22 @@ Doctor stamps a new `.metrognome/perf-memory.md` with this header:
 
 <!-- entries below, newest first -->
 ```
+
+---
+
+## Playbook (`playbook.md`)
+
+`build_playbook.mjs` distils every completed ledger hypothesis into **`.metrognome/playbook.md`** — the app's measured lab notebook, aggregated by fix pattern:
+
+```
+| Preset    | Guide / Fix                                          | Kept / Tried | Effects          |
+| listing   | js/optimizing-flatlist (getItemLayout missing …)     | 2/2          | -213 ms, -169 ms |
+| re-renders| js/hoist-inline-props (inline-prop hoist)            | 0/1          | below noise band |
+```
+
+- **Proven wins** (`kept > 0`) — ranked fix patterns with measured deltas.
+- **Dead ends** (`kept = 0`) — patterns that failed to clear the gate in this repo; **do not retry**.
+
+Generate or refresh: `node build_playbook.mjs .metrognome` (or `npm run playbook -- .metrognome`). The script is read-only over ledger files.
+
+**Commit `playbook.md`** with the app; the whole team inherits the measured priors. `playbook.json` (machine-readable) may be gitignored.

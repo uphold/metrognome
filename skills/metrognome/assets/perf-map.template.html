@@ -6,29 +6,36 @@
 <title>metrognome · perf map</title>
 <style>
   /* ------------------------------------------------------------------ *
-   * metrognome perf map — premium dark "observability console".         *
+   * metrognome perf map — light "performance studio" theme.             *
    * Offline, no build step, no network: vanilla CSS, system SF stack,   *
-   * single amber accent (= the HIGH/metronome colour, no AI-purple),    *
-   * mono for all data, hairline borders, inner-refraction glass.        *
-   * Motion is restrained on purpose — the 3D graph is the motion.       *
+   * single performance-green accent, mono for all data, hairline        *
+   * borders, glass panels on white. Motion: the 3D graph.              *
    * ------------------------------------------------------------------ */
   :root {
-    --bg:        #0b0d12;
-    --bg-2:      #0e1117;
-    --panel:     rgba(18, 21, 29, 0.90);
-    --panel-2:   #141822;
-    --hair:      rgba(255, 255, 255, 0.07);
-    --hair-2:    rgba(255, 255, 255, 0.12);
-    --text:      #e9edf5;
-    --dim:       #98a2b6;
-    --faint:     #69718a;
-    --accent:    #ffae3b;   /* single chrome accent; also HIGH severity */
-    --crit:      #ff4d4d;
-    --high:      #ff9f1c;
-    --med:       #f2c94c;
-    --cold:      #5a647e;
-    --inset-hi:  inset 0 1px 0 rgba(255, 255, 255, 0.06);
-    --drop:      0 24px 60px -28px rgba(0, 0, 0, 0.85);
+    /* surfaces */
+    --bg:        #ffffff;
+    --bg-2:      #f6f8fa;
+    --panel:     rgba(255, 255, 255, 0.86);
+    --panel-2:   #ffffff;
+    --tint:      #f0fdf4;
+    /* hairlines */
+    --hair:      rgba(15, 23, 42, 0.08);
+    --hair-2:    rgba(15, 23, 42, 0.14);
+    /* text */
+    --text:      #0f172a;
+    --dim:       #475569;
+    --faint:     #94a3b8;
+    /* brand — performance green */
+    --accent:    #16a34a;   /* green-600 — chrome accent */
+    --accent-2:  #22c55e;   /* green-500 — brighter fills */
+    --accent-ink:#052e16;   /* text on green buttons */
+    /* severity — tuned to read on white */
+    --crit:      #dc2626;
+    --high:      #ea580c;
+    --med:       #d97706;
+    --cold:      #64748b;
+    --inset-hi:  inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    --drop:      0 18px 44px -22px rgba(15, 23, 42, 0.28);
     --ease:      cubic-bezier(0.16, 1, 0.3, 1);
     --sans:      -apple-system, "SF Pro Text", BlinkMacSystemFont, ui-sans-serif, "Segoe UI", Roboto, sans-serif;
     --mono:      "SF Mono", ui-monospace, "JetBrains Mono", "Roboto Mono", Menlo, monospace;
@@ -36,15 +43,15 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
     font-family: var(--sans); font-size: 13px; line-height: 1.5;
-    -webkit-font-smoothing: antialiased; overflow: hidden; }
+    -webkit-font-smoothing: antialiased; overflow: hidden;
+    background-image: linear-gradient(180deg, var(--tint) 0%, var(--bg) 320px); }
 
   #graph { position: fixed; inset: 0; }
 
-  /* Atmosphere: a vignette + the faintest grain. Static + pointer-events:none
-     so it never costs a repaint as the canvas animates underneath. */
+  /* Atmosphere: a soft top-light vignette + barely-visible grain. */
   body::before { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 5;
-    background: radial-gradient(120% 90% at 50% 30%, transparent 55%, rgba(0,0,0,0.55) 100%); }
-  body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 6; opacity: 0.03;
+    background: radial-gradient(110% 60% at 50% 0%, rgba(240,253,244,0.7) 0%, transparent 70%); }
+  body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 6; opacity: 0.015;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
 
   .overlay { position: fixed; z-index: 10; }
@@ -94,7 +101,7 @@
     padding: 7px 8px; border-radius: 8px; cursor: pointer;
     margin-top: 3px; transition: background 0.1s;
   }
-  #results li:hover, #results li.sel { background: rgba(255, 255, 255, 0.06); }
+  #results li:hover, #results li.sel { background: rgba(15, 23, 42, 0.05); }
   .res-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; }
   .res-name { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--text);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
@@ -130,7 +137,7 @@
   .why .loc { font-family: var(--mono); color: var(--faint); }
   .cmd { display: flex; gap: 6px; align-items: stretch; }
   .cmd code { flex: 1; min-width: 0; background: var(--bg-2); border: 1px solid var(--hair);
-    border-radius: 8px; padding: 6px 9px; font-family: var(--mono); font-size: 11px; color: #cdd6e8;
+    border-radius: 8px; padding: 6px 9px; font-family: var(--mono); font-size: 11px; color: var(--text);
     overflow-x: auto; white-space: nowrap; }
   button { font-family: var(--sans); cursor: pointer; border: 0; transition: transform 0.12s var(--ease), background 0.15s, color 0.15s; }
   button:active { transform: translateY(1px) scale(0.98); }
@@ -139,7 +146,7 @@
   .copy:hover { color: var(--text); border-color: var(--accent); }
   .copy.done { color: var(--accent); border-color: var(--accent); }
   .copyall { width: 100%; margin-top: 12px; padding: 9px; border-radius: 10px; font-size: 12px; font-weight: 600;
-    background: var(--accent); color: #1c1400; }
+    background: var(--accent); color: var(--accent-ink); }
   .copyall:hover { filter: brightness(1.06); }
   .copyall.done { background: transparent; color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 
@@ -154,7 +161,7 @@
   #panel { position: fixed; top: 0; right: 0; height: 100%; width: 392px; z-index: 20;
     background: var(--panel-2); border-left: 1px solid var(--hair-2); padding: 22px 20px;
     overflow-y: auto; transform: translateX(110%); transition: transform 0.32s var(--ease);
-    box-shadow: -30px 0 60px -30px rgba(0,0,0,0.8); }
+    box-shadow: -30px 0 60px -30px rgba(15,23,42,0.18); }
   #panel.open { transform: none; }
   #panel::-webkit-scrollbar { width: 8px; }
   #panel::-webkit-scrollbar-thumb { background: var(--hair-2); border-radius: 8px; }
@@ -173,11 +180,11 @@
   .finding .ref { font-size: 11px; color: var(--faint); }
   .finding .ref b { color: var(--dim); font-weight: 500; font-family: var(--mono); }
   .sev { flex: none; font-family: var(--mono); font-size: 9px; font-weight: 600; letter-spacing: 0.06em;
-    padding: 1px 6px; border-radius: 5px; color: #14110a; }
-  .sev.CRITICAL { background: var(--crit); color: #fff; }
+    padding: 1px 6px; border-radius: 5px; color: #fff; }
+  .sev.CRITICAL { background: var(--crit); }
   .sev.HIGH { background: var(--high); }
-  .sev.MEDIUM { background: var(--med); }
-  .sev.LOW { background: var(--cold); color: #e9edf5; }
+  .sev.MEDIUM { background: var(--med); color: #451a03; }
+  .sev.LOW { background: var(--cold); }
   .finding.b-CRITICAL { border-left-color: var(--crit); }
   .finding.b-HIGH { border-left-color: var(--high); }
   .finding.b-MEDIUM { border-left-color: var(--med); }
@@ -186,6 +193,19 @@
 
   .hint { bottom: 20px; right: 22px; color: var(--faint); font-family: var(--mono); font-size: 10px;
     letter-spacing: 0.04em; }
+
+  /* ---- mobile (≤ 768px): the map wins, chrome gives way ---------------- *
+   * #top3 alone covers a phone viewport, so it's hidden — its content is   *
+   * still reachable by tapping any hotspot node. Desktop is untouched.     */
+  @media (max-width: 768px) {
+    #top3 { display: none; }
+    .hint { display: none; }                    /* keyboard hint — no keyboard on touch */
+    .scene-nav-info { display: none !important; } /* 3d-force-graph's mouse instructions */
+    #head, #controls { left: 12px; max-width: calc(100vw - 24px); }
+    #controls { width: calc(100vw - 24px); }
+    #legend { left: 12px; right: 12px; bottom: 12px; flex-wrap: wrap; gap: 6px 12px; }
+    #panel { width: 100vw; }                    /* node detail: full-sheet on phones */
+  }
 </style>
 </head>
 <body>
@@ -194,10 +214,10 @@
 <header id="head" class="overlay glass enter" style="animation-delay:.05s">
   <div class="brand">
     <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
-      <rect x="1"  y="13" width="3.4" height="7"  rx="1.2" fill="#ffae3b" opacity="0.55"/>
-      <rect x="6.3" y="9" width="3.4" height="11" rx="1.2" fill="#ffae3b" opacity="0.75"/>
-      <rect x="11.6" y="4" width="3.4" height="16" rx="1.2" fill="#ffae3b"/>
-      <rect x="16.9" y="10" width="3.4" height="10" rx="1.2" fill="#ffae3b" opacity="0.65"/>
+      <rect x="1"  y="13" width="3.4" height="7"  rx="1.2" fill="#22c55e" opacity="0.55"/>
+      <rect x="6.3" y="9" width="3.4" height="11" rx="1.2" fill="#22c55e" opacity="0.75"/>
+      <rect x="11.6" y="4" width="3.4" height="16" rx="1.2" fill="#16a34a"/>
+      <rect x="16.9" y="10" width="3.4" height="10" rx="1.2" fill="#22c55e" opacity="0.65"/>
     </svg>
     <h1>metro<b>g</b>nome</h1>
   </div>
@@ -331,20 +351,20 @@
 
   // ---- 3D graph ----
   const G = ForceGraph3D()(document.getElementById('graph'))
-    .backgroundColor('#0b0d12')
+    .backgroundColor('#ffffff')
     .graphData(filteredData(DEFAULT_MIN))
     .nodeVal('val')
     .nodeColor('color')
     .nodeOpacity(0.95)
     .nodeResolution(12)
-    .nodeLabel((n) => `<div style="background:rgba(18,21,29,0.95);border:1px solid rgba(255,255,255,0.12);
-        border-radius:9px;padding:7px 10px;color:#e9edf5;
+    .nodeLabel((n) => `<div style="background:#ffffff;border:1px solid rgba(15,23,42,0.14);
+        border-radius:9px;padding:7px 10px;color:#0f172a;
         font-family:-apple-system,'SF Pro Text',sans-serif;font-size:12px;max-width:280px;
-        box-shadow:0 12px 30px -12px rgba(0,0,0,0.8)">
-        <b>${esc(n.label)}</b> <span style="font-family:'SF Mono',ui-monospace,Menlo,monospace;color:#98a2b6">· debt ${n.debt}</span><br/>
-        <span style="color:#69718a">${n.findings.length} finding(s)${n.isHotspot ? ', ' + n.maxSeverity : ', below gate'}</span>
+        box-shadow:0 8px 24px -8px rgba(15,23,42,0.22)">
+        <b>${esc(n.label)}</b> <span style="font-family:'SF Mono',ui-monospace,Menlo,monospace;color:#475569">· debt ${n.debt}</span><br/>
+        <span style="color:#94a3b8">${n.findings.length} finding(s)${n.isHotspot ? ', ' + n.maxSeverity : ', below gate'}</span>
       </div>`)
-    .linkColor(() => 'rgba(120,140,170,0.20)')
+    .linkColor(() => 'rgba(71,85,105,0.22)')
     .linkWidth(0.5)
     .onNodeClick(focusNode);
 

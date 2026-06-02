@@ -2,21 +2,31 @@
 
 ## Why single samples lie
 
-Device performance is noisy: thermals, garbage collection, background work, JIT/Hermes warm-up, and OS scheduling all move a number run-to-run by 5–15% with no code change. A single before/after pair will routinely show a "win" that is pure jitter — and if you keep unmeasured wins, your commit history fills with changes that did nothing (or regressed) and you can't tell which. metrognome's entire credibility rests on **only keeping changes whose improvement is larger than the measurement noise.**
+Thermals, GC, background work, JIT/Hermes warm-up, and OS scheduling move numbers by 5–15% with no code change. A single before/after pair routinely shows a "win" that is pure jitter — unmeasured wins fill your history with silent regressions. metrognome keeps **only changes whose improvement exceeds the measurement noise.**
+
+## Preconditions — session must be live
+
+A broken session gives noise or zeros. Verify before the N-run protocol:
+
+1. **Git state is `usable`** — `parseGitState` returns `state: 'usable'`. Without this, commits and reverts will throw; print Doctor's remediation and wait.
+2. **Metro is reachable** — `localhost:${port}/json/list` responds with ≥1 live Hermes target (excluding the `-1` ghost). If Metro is down, start it first.
+3. **App session is live** — `agent-react-devtools status` reports ≥1 app connected (required for `re-renders` / `listing`). Run the session bring-up sub-protocol if not.
+
+Doctor's preflight (step 1 of the loop) verifies all three — skip re-running it if Doctor already ran cleanly.
 
 ## The N-run protocol
 
 For both baseline and candidate:
 
 1. Run the preset's measurement **N times** (default **N=5**).
-2. **Discard one warm-up run** (the first run pays JIT/cache costs). Keep the remaining N−1.
-3. Compute **mean ± sample stddev** over the kept runs (`scripts/stats.mjs`).
+2. **Discard the first run** (JIT/cache costs). Keep the remaining N−1.
+3. Compute **mean ± sample stddev** over kept runs (`scripts/stats.mjs`).
 
-Use the *same* driving workload each time (same scroll distance, same cycle count) — a `.ad` replay script from agent-device makes this exact. Differences in the workload are a hidden variable that defeats the gate.
+Use the *same* driving workload each time — a `.ad` replay script from agent-device makes this exact. Variable workloads defeat the gate.
 
 ## The gate
 
-Keep a change only if its improvement clears the **noise band**:
+Keep a change only if improvement clears the **noise band**:
 
 ```
 improvement = (lower-is-better) ? baseline_mean − candidate_mean
@@ -26,15 +36,15 @@ noise_band  = max(min_effect, k · pooled_std)            // k ≈ 2
 KEEP  ⇔  improvement > noise_band
 ```
 
-Two thresholds, both must be cleared:
-- **`k · pooled_std`** — statistical: the change must stand out from run-to-run jitter (k≈2 ≈ keep only clearly-separated distributions).
-- **`min_effect`** — practical: an absolute floor so you don't chase a real-but-trivial 2 ms. Set per preset (e.g. TTI 30 ms, jank 2 dropped frames, RAM a few MB, FPS 2–3 fps, bundle a few KB).
+Both thresholds must be cleared:
+- **`k · pooled_std`** — statistical floor: improvement must stand out from jitter (k≈2 ≈ clearly-separated distributions).
+- **`min_effect`** — practical floor: don't chase a real-but-trivial gain. Per preset: TTI 30 ms, jank 2 dropped frames, RAM a few MB (2000000 / 500000 bytes), FPS 2–3 fps, bundle a few KB.
 
-Direction per metric: **lower-is-better** for TTI, jank, RAM, bundle bytes, wasted commits; **higher-is-better** for FPS.
+Direction: **lower-is-better** for TTI, jank, RAM, bundle bytes, wasted commits; **higher-is-better** for FPS.
 
-## Choose a metric your platform can actually measure
+## Choose a metric your platform can measure
 
-Before baselining, confirm that the metric you plan to gate on is available on your target platform. Using a metric that returns N/A or a constant zero defeats the gate.
+Before baselining, confirm the metric is available on your target — N/A or constant zero defeats the gate.
 
 | Metric | iOS Simulator | iOS device | Android |
 |---|---|---|---|
@@ -45,23 +55,22 @@ Before baselining, confirm that the metric you plan to gate on is available on y
 | **Startup / TTI** | ✅ | ✅ | ✅ |
 | **CPU / memory (OS)** | ✅ agent-device (no FPS column) | ✅ | ✅ |
 
-For `listing` on an iOS Simulator, gate on **re-render count** (`agent-react-devtools profile rerenders`) or **longtask duration** rather than FPS. For `memory-leaks` on any platform, use **`heap_sample.mjs --cycles N`** piped into `stats.mjs --direction lower --unit bytes`.
+For `listing` on iOS Simulator, gate on **re-render count** or **longtask duration** rather than FPS. For `memory-leaks`, use **`heap_sample.mjs --cycles N`** piped into `stats.mjs --direction lower --unit bytes`.
 
 ## Run it
 
 ```bash
-node "${CLAUDE_PLUGIN_ROOT}/skills/metrognome/scripts/stats.mjs" \
+$MG stats \
   --baseline  "1200,1180,1210,1190" \
   --candidate "980,1000,990,1010" \
   --min-effect 30 --k 2 --direction lower --unit ms
 ```
 
-Returns JSON with both distributions, the improvement (absolute + %), the pooled std, the noise band, and `decision: KEEP | REVERT` with a reason. Self-check the math any time with `node …/stats.mjs --self-test`.
+Returns JSON with both distributions, improvement (absolute + %), pooled std, noise band, and `decision: KEEP | REVERT`. Self-check: `$MG stats --self-test`.
 
 ## After the decision
 
-- **KEEP** → atomic `git commit` whose message carries the measured delta and n, e.g.
-  `perf(listing): getItemLayout on FeedScreen — jank 18→4 frames (−78%, n=4)`.
-- **REVERT** → `git restore .`; log it as REVERTED in the Ledger with both distributions so the same dead-end isn't retried (and record it in `perf-memory.md`).
+- **KEEP** → atomic `git commit` with the measured delta and n, e.g. `perf(listing): getItemLayout on FeedScreen — jank 18→4 frames (−78%, n=4)`.
+- **REVERT** → restore each `touched` file from its pre-fix snapshot; log REVERTED in the Ledger with both distributions; record in `perf-memory.md` so the dead-end isn't retried. `preExistingDirty` files are never touched.
 
-Record **both full distributions** in the Ledger either way — a reverted result is still data, and it's what stops a future run from re-trying a proven-neutral fix.
+Record **both full distributions** in the Ledger either way — reverted data prevents retrying a proven-neutral fix.

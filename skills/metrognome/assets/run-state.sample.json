@@ -1,0 +1,68 @@
+{
+  "preset": "listing",
+  "target": "FeedScreen",
+  "status": "done",
+  "startedAt": "2026-06-02T18:00:00.000Z",
+  "unit": "ms",
+  "direction": "lower",
+  "baseline": { "mean": 1190, "std": 12, "runs": 4 },
+  "iterations": [
+    {
+      "n": 1,
+      "hypothesis": "Add getItemLayout to FlatList",
+      "guide": "js/optimizing-flatlist",
+      "change": "Added getItemLayout prop to FeedScreen's FlatList — each item is a fixed 96px card",
+      "candidate": { "mean": 985, "std": 9, "runs": 4 },
+      "decision": "KEEP",
+      "delta": "-205ms (-17%)",
+      "noiseBand": 24,
+      "commit": "a1b2c3d"
+    },
+    {
+      "n": 2,
+      "hypothesis": "Memoize FeedItem with React.memo",
+      "guide": "js/react-memo",
+      "change": "Wrapped FeedItem component in React.memo with a custom areEqual comparator",
+      "candidate": { "mean": 978, "std": 11, "runs": 4 },
+      "decision": "REVERT",
+      "delta": "-7ms (-0.7%)",
+      "noiseBand": 22,
+      "commit": null
+    },
+    {
+      "n": 3,
+      "hypothesis": "Move avatar image decoding off-thread with Image.resolveAssetSource",
+      "guide": "js/image-performance",
+      "change": "Pre-decoded avatar URIs in a useEffect so the render cycle doesn't stall on image decode",
+      "candidate": { "mean": 891, "std": 8, "runs": 4 },
+      "decision": "KEEP",
+      "delta": "-94ms (-10%)",
+      "noiseBand": 20,
+      "commit": "e4f5a6b"
+    },
+    {
+      "n": 4,
+      "hypothesis": "Replace inline style objects with StyleSheet.create",
+      "guide": "js/stylesheet-create",
+      "change": "Moved all inline style objects in FeedItem to StyleSheet.create at module level",
+      "candidate": { "mean": 886, "std": 10, "runs": 4 },
+      "decision": "REVERT",
+      "delta": "-5ms (-0.6%)",
+      "noiseBand": 20,
+      "commit": null
+    },
+    {
+      "n": 5,
+      "hypothesis": "Add keyExtractor returning item.id instead of index",
+      "guide": "js/optimizing-flatlist",
+      "change": "Changed keyExtractor from default (index) to (item) => item.id to prevent full re-renders on data updates",
+      "candidate": { "mean": 834, "std": 7, "runs": 4 },
+      "decision": "KEEP",
+      "delta": "-57ms (-6%)",
+      "noiseBand": 18,
+      "commit": "c7d8e9f"
+    }
+  ],
+  "netDelta": "-356ms (-30%)",
+  "commits": ["a1b2c3d", "e4f5a6b", "c7d8e9f"]
+}

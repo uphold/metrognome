@@ -1,12 +1,15 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "metrognome",
-  "version": "0.1.0",
-  "description": "Autonomous, scientific React Native performance optimization. Orchestrates Callstack's metro-mcp, agent-device, agent-react-devtools, and react-native-best-practices into one propose -> measure -> keep/revert loop with git-as-memory, metric-gated commits, an interactive 3D Perf Map, and an auto-developing per-repo performance memory.",
+  "version": "0.2.5",
+  "description": "The autonomous performance engineer for React Native. Orchestrates metro-mcp and Callstack's agent-device, agent-react-devtools, and react-native-best-practices into one propose → measure → keep/revert loop — with an interactive 3D Perf Map, a live HTML run report, configurable commit mode, and per-repo performance memory.",
   "author": {
-    "name": "Xavier"
+    "name": "Xavier",
+    "email": "xavi-999@users.noreply.github.com",
+    "url": "https://github.com/xavi-999"
   },
-  "homepage": "https://github.com/xavi-999/metrognome",
-  "repository": "https://github.com/xavi-999/metrognome",
+  "homepage": "https://uphold.github.io/metrognome/",
+  "repository": "https://github.com/uphold/metrognome",
   "license": "MIT",
   "keywords": [
     "react-native",

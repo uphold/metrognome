@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 440" width="800" height="440">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f0fdf4"/>
+      <stop offset="100%" stop-color="#ffffff"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="800" height="440" fill="url(#bg)"/>
+  <rect x="0" y="0" width="4" height="440" fill="#16a34a"/>
+
+  <!-- title -->
+  <text x="400" y="42" text-anchor="middle"
+    font-family="-apple-system,'SF Pro Text',sans-serif" font-size="13" font-weight="600"
+    letter-spacing="0.18em" fill="#94a3b8">SIGNAL, NOT NOISE</text>
+
+  <!-- "ALL raw findings" label above funnel -->
+  <text x="400" y="72" text-anchor="middle"
+    font-family="-apple-system,'SF Pro Text',sans-serif" font-size="11.5" fill="#475569">ALL raw findings</text>
+
+  <!-- funnel outline: wide top (200,80)–(600,80), narrow bottom (320,340)–(480,340) -->
+  <path d="M 200 80 L 600 80 L 480 340 L 320 340 Z"
+    fill="none" stroke="rgba(15,23,42,0.08)" stroke-width="1.5"/>
+
+  <!-- ── dots: grey (most), red/orange (few critical/high), inside funnel top zone ── -->
+
+  <!-- row y=92 — funnel x: 206–594 -->
+  <circle cx="228" cy="92" r="4"   fill="#94a3b8" opacity="0.40"/>
+  <circle cx="268" cy="92" r="3"   fill="#94a3b8" opacity="0.35"/>
+  <circle cx="312" cy="92" r="4.5" fill="#94a3b8" opacity="0.45"/>
+  <circle cx="358" cy="92" r="4"   fill="#dc2626" opacity="0.60"/>
+  <circle cx="400" cy="92" r="3.5" fill="#94a3b8" opacity="0.30"/>
+  <circle cx="444" cy="92" r="4"   fill="#ea580c" opacity="0.55"/>
+  <circle cx="490" cy="92" r="3"   fill="#94a3b8" opacity="0.40"/>
+  <circle cx="536" cy="92" r="4"   fill="#94a3b8" opacity="0.35"/>
+  <circle cx="572" cy="92" r="3.5" fill="#94a3b8" opacity="0.42"/>
+
+  <!-- row y=108 — funnel x: 213–587 -->
+  <circle cx="234" cy="108" r="3.5" fill="#94a3b8" opacity="0.38"/>
+  <circle cx="274" cy="108" r="4"   fill="#94a3b8" opacity="0.44"/>
+  <circle cx="320" cy="108" r="3"   fill="#94a3b8" opacity="0.32"/>
+  <circle cx="366" cy="108" r="4"   fill="#dc2626" opacity="0.58"/>
+  <circle cx="408" cy="108" r="3.5" fill="#94a3b8" opacity="0.36"/>
+  <circle cx="452" cy="108" r="4"   fill="#ea580c" opacity="0.52"/>
+  <circle cx="500" cy="108" r="3"   fill="#94a3b8" opacity="0.40"/>
+  <circle cx="548" cy="108" r="4.5" fill="#94a3b8" opacity="0.33"/>
+
+  <!-- row y=124 — funnel x: 220–580 -->
+  <circle cx="242" cy="124" r="4"   fill="#94a3b8" opacity="0.42"/>
+  <circle cx="284" cy="124" r="3"   fill="#94a3b8" opacity="0.35"/>
+  <circle cx="332" cy="124" r="4"   fill="#94a3b8" opacity="0.40"/>
+  <circle cx="380" cy="124" r="4"   fill="#dc2626" opacity="0.56"/>
+  <circle cx="424" cy="124" r="3.5" fill="#94a3b8" opacity="0.38"/>
+  <circle cx="468" cy="124" r="3"   fill="#94a3b8" opacity="0.32"/>
+  <circle cx="518" cy="124" r="4"   fill="#94a3b8" opacity="0.45"/>
+  <circle cx="558" cy="124" r="3.5" fill="#94a3b8" opacity="0.37"/>
+
+  <!-- row y=140 — funnel x: 228–572 -->
+  <circle cx="250" cy="140" r="3.5" fill="#94a3b8" opacity="0.36"/>
+  <circle cx="294" cy="140" r="4"   fill="#94a3b8" opacity="0.43"/>
+  <circle cx="344" cy="140" r="3"   fill="#94a3b8" opacity="0.30"/>
+  <circle cx="392" cy="140" r="4"   fill="#ea580c" opacity="0.50"/>
+  <circle cx="436" cy="140" r="3.5" fill="#94a3b8" opacity="0.38"/>
+  <circle cx="482" cy="140" r="4"   fill="#94a3b8" opacity="0.41"/>
+  <circle cx="530" cy="140" r="3"   fill="#94a3b8" opacity="0.35"/>
+
+  <!-- row y=156 — funnel x: 235–565 -->
+  <circle cx="258" cy="156" r="4"   fill="#94a3b8" opacity="0.40"/>
+  <circle cx="304" cy="156" r="3"   fill="#94a3b8" opacity="0.34"/>
+  <circle cx="354" cy="156" r="3.5" fill="#94a3b8" opacity="0.37"/>
+  <circle cx="400" cy="156" r="4"   fill="#94a3b8" opacity="0.43"/>
+  <circle cx="446" cy="156" r="3"   fill="#94a3b8" opacity="0.31"/>
+  <circle cx="492" cy="156" r="4"   fill="#94a3b8" opacity="0.39"/>
+  <circle cx="534" cy="156" r="3.5" fill="#ea580c" opacity="0.48"/>
+
+  <!-- row y=172 — funnel x: 242–558 -->
+  <circle cx="266" cy="172" r="3.5" fill="#94a3b8" opacity="0.38"/>
+  <circle cx="314" cy="172" r="4"   fill="#94a3b8" opacity="0.44"/>
+  <circle cx="364" cy="172" r="3"   fill="#94a3b8" opacity="0.33"/>
+  <circle cx="410" cy="172" r="4"   fill="#94a3b8" opacity="0.40"/>
+  <circle cx="456" cy="172" r="3.5" fill="#94a3b8" opacity="0.36"/>
+  <circle cx="508" cy="172" r="3"   fill="#94a3b8" opacity="0.30"/>
+
+  <!-- ── green dots at funnel neck — the few that cleared all filters ── -->
+  <!-- at y=270–318, funnel x: ~288–512 to ~310–490 -->
+  <circle cx="340" cy="270" r="5"   fill="#16a34a" opacity="0.80"/>
+  <circle cx="410" cy="270" r="6"   fill="#16a34a" opacity="0.90"/>
+  <circle cx="370" cy="295" r="5"   fill="#16a34a" opacity="0.85"/>
+  <circle cx="440" cy="295" r="5.5" fill="#16a34a" opacity="0.80"/>
+  <circle cx="395" cy="318" r="5"   fill="#16a34a" opacity="0.88"/>
+
+  <!-- ── filter labels — compact numbered phrases, right side ── -->
+  <text x="610" y="118" text-anchor="start"
+    font-family="-apple-system,'SF Pro Text',sans-serif" font-size="10.5" fill="#475569">① severity weights</text>
+  <text x="610" y="151" text-anchor="start"
+    font-family="-apple-system,'SF Pro Text',sans-serif" font-size="10.5" fill="#475569">② diminishing returns</text>
+  <text x="610" y="184" text-anchor="start"
+    font-family="-apple-system,'SF Pro Text',sans-serif" font-size="10.5" fill="#475569">③ log-scale centrality</text>
+  <text x="610" y="221" text-anchor="start"
+    font-family="-apple-system,'SF Pro Text',sans-serif" font-size="10.5" fill="#475569">④ gate: debt≥6 or HIGH/CRIT</text>
+
+  <!-- ── REAL HOTSPOTS pill ── -->
+  <rect x="312" y="349" width="176" height="46" rx="10"
+    fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="400" y="368" text-anchor="middle"
+    font-family="-apple-system,'SF Pro Text',sans-serif" font-size="13" font-weight="700"
+    fill="#16a34a">REAL HOTSPOTS</text>
+  <text x="400" y="385" text-anchor="middle"
+    font-family="'SF Mono',monospace" font-size="9.5" fill="#475569">the few that matter</text>
+
+  <!-- why-line — left margin -->
+  <text x="110" y="204" text-anchor="middle"
+    font-family="-apple-system,'SF Pro Text',sans-serif" font-size="10" fill="#94a3b8">healthy code fires</text>
+  <text x="110" y="220" text-anchor="middle"
+    font-family="-apple-system,'SF Pro Text',sans-serif" font-size="10" fill="#94a3b8">detectors everywhere</text>
+</svg>

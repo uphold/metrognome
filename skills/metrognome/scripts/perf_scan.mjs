@@ -26,9 +26,22 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
-import { parse } from '@babel/parser';
-import _traverse from '@babel/traverse';
-const traverse = _traverse.default || _traverse;
+import { createRequire } from 'node:module';
+
+// Babel packages are CJS — load via createRequire (same pattern as doctor.mjs)
+// so a missing install fails with one actionable line instead of a raw
+// ERR_MODULE_NOT_FOUND stack (the SessionStart hook's npm install is silent
+// by design, so this is the user's first signal).
+const requireLocal = createRequire(import.meta.url);
+let parse, traverse;
+try {
+  ({ parse } = requireLocal('@babel/parser'));
+  const _traverse = requireLocal('@babel/traverse');
+  traverse = _traverse.default || _traverse;
+} catch {
+  console.error(`[metrognome] missing deps (@babel/parser, @babel/traverse) — run: npm install in ${path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../..')}`);
+  process.exit(1);
+}
 
 // ---------------------------------------------------------------------------
 // CONFIG — the single place to tune signal-vs-noise. See perf-map.md.

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="8 48 240 240" width="240" height="240">
+  <defs>
+    <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#16a34a"/>
+      <stop offset="100%" stop-color="#22c55e"/>
+    </linearGradient>
+  </defs>
+  <polygon points="128,58 78,202 178,202" fill="url(#barGrad)" stroke="#15803d" stroke-width="1.5" stroke-linejoin="round"/>
+  <line x1="119" y1="103" x2="137" y2="103" stroke="white" stroke-width="1.5" opacity="0.4"/>
+  <line x1="107" y1="140" x2="149" y2="140" stroke="white" stroke-width="1.5" opacity="0.4"/>
+  <circle cx="128" cy="76" r="3.5" fill="#052e16"/>
+  <line x1="128" y1="76" x2="155" y2="178" stroke="#052e16" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="155" cy="178" r="6" fill="#052e16"/>
+  <rect x="70" y="200" width="116" height="14" rx="5" fill="#15803d" stroke="#166534" stroke-width="0.5"/>
+  <polygon points="100,214 156,214 143,260 128,278 113,260" fill="#d1fae5" stroke="#86efac" stroke-width="1" stroke-linejoin="round"/>
+  <ellipse cx="128" cy="224" rx="9" ry="7" fill="#94a3b8" opacity="0.75"/>
+</svg>
