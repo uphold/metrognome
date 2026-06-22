@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 440" width="800" height="440">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f0fdf4"/>
+      <stop offset="100%" stop-color="#ffffff"/>
+    </linearGradient>
+    <marker id="arr-green" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#16a34a"/>
+    </marker>
+    <marker id="arr-slate" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <rect width="800" height="440" fill="url(#bg)"/>
+  <!-- title -->
+  <text x="400" y="42" text-anchor="middle"
+    font-family="-apple-system,'SF Pro Text',sans-serif" font-size="13" font-weight="600"
+    letter-spacing="0.18em" fill="#94a3b8" text-transform="uppercase">THE OPTIMIZATION LOOP</text>
+
+  <!-- ── three main nodes ── -->
+  <!-- PROPOSE -->
+  <rect x="60" y="160" width="180" height="80" rx="14" fill="#ffffff"
+    stroke="#16a34a" stroke-width="1.5"/>
+  <text x="150" y="193" text-anchor="middle"
+    font-family="-apple-system,'SF Pro Text',sans-serif" font-size="15" font-weight="700"
+    fill="#0f172a">PROPOSE</text>
+  <text x="150" y="214" text-anchor="middle"
+    font-family="-apple-system,'SF Pro Text',sans-serif" font-size="11.5"
+    fill="#475569">one atomic fix from</text>
+  <text x="150" y="230" text-anchor="middle"
+    font-family="-apple-system,'SF Pro Text',sans-serif" font-size="11.5"
+    fill="#475569">the preset catalog</text>
+
+  <!-- MEASURE -->
+  <rect x="310" y="160" width="180" height="80" rx="14" fill="#ffffff"
+    stroke="#16a34a" stroke-width="1.5"/>
+  <text x="400" y="193" text-anchor="middle"
+    font-family="-apple-system,'SF Pro Text',sans-serif" font-size="15" font-weight="700"
+    fill="#0f172a">MEASURE</text>
+  <text x="400" y="214" text-anchor="middle"
+    font-family="-apple-system,'SF Pro Text',sans-serif" font-size="11.5"
+    fill="#475569">N runs, mean ± stddev</text>
+  <text x="400" y="230" text-anchor="middle"
+    font-family="-apple-system,'SF Pro Text',sans-serif" font-size="11.5"
+    fill="#475569">stats.mjs gates the call</text>
+
+  <!-- GATE node — diamond -->
+  <polygon points="560,160 660,200 560,240 460,200"
+    fill="#ffffff" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="560" y="196" text-anchor="middle"
+    font-family="-apple-system,'SF Pro Text',sans-serif" font-size="14" font-weight="700"
+    fill="#0f172a">GATE</text>
+  <text x="560" y="212" text-anchor="middle"
+    font-family="-apple-system,'SF Pro Text',sans-serif" font-size="10.5"
+    fill="#475569">improvement &gt; noise?</text>
+
+  <!-- arrows between propose→measure→gate -->
+  <line x1="241" y1="200" x2="308" y2="200" stroke="#16a34a" stroke-width="1.5"
+    marker-end="url(#arr-green)"/>
+  <line x1="491" y1="200" x2="458" y2="200" stroke="#16a34a" stroke-width="1.5"
+    marker-end="url(#arr-green)"/>
+
+  <!-- KEEP path (down from gate) -->
+  <line x1="560" y1="241" x2="560" y2="300" stroke="#16a34a" stroke-width="1.5"
+    marker-end="url(#arr-green)"/>
+  <rect x="490" y="300" width="140" height="52" rx="10" fill="#f0fdf4"
+    stroke="#16a34a" stroke-width="1.5"/>
+  <text x="560" y="323" text-anchor="middle"
+    font-family="-apple-system,'SF Pro Text',sans-serif" font-size="13" font-weight="700"
+    fill="#16a34a">KEEP</text>
+  <text x="560" y="341" text-anchor="middle"
+    font-family="-apple-system,'SF Pro Text',sans-serif" font-size="10.5"
+    fill="#475569">git commit (metric-gated)</text>
+  <text x="614" y="252" font-family="-apple-system,'SF Pro Text',sans-serif"
+    font-size="11" fill="#16a34a">yes</text>
+
+  <!-- REVERT path (right from gate) -->
+  <line x1="661" y1="200" x2="720" y2="200" stroke="#64748b" stroke-width="1.5"
+    marker-end="url(#arr-slate)"/>
+  <rect x="720" y="164" width="62" height="52" rx="10" fill="#f8fafc"
+    stroke="#94a3b8" stroke-width="1.5"/>
+  <text x="751" y="186" text-anchor="middle"
+    font-family="-apple-system,'SF Pro Text',sans-serif" font-size="12" font-weight="700"
+    fill="#64748b">REVERT</text>
+  <text x="751" y="202" text-anchor="middle"
+    font-family="-apple-system,'SF Pro Text',sans-serif" font-size="9.5"
+    fill="#94a3b8">git restore .</text>
+  <text x="687" y="192" font-family="-apple-system,'SF Pro Text',sans-serif"
+    font-size="11" fill="#94a3b8">no</text>
+
+  <!-- loop-back arrow: KEEP → next iteration (back to PROPOSE) -->
+  <path d="M 560 352 Q 560 390 400 390 Q 240 390 150 390 Q 150 390 150 352"
+    fill="none" stroke="#16a34a" stroke-width="1.2" stroke-dasharray="5,3"
+    marker-end="url(#arr-green)"/>
+  <text x="400" y="408" text-anchor="middle"
+    font-family="'SF Mono',monospace" font-size="10" fill="#94a3b8">next iteration (until budget exhausted)</text>
+
+  <!-- REVERT loop-back -->
+  <path d="M 751 164 Q 751 100 400 100 Q 150 100 150 159"
+    fill="none" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4,3"
+    marker-end="url(#arr-slate)"/>
+
+  <!-- left accent bar -->
+  <rect x="0" y="0" width="4" height="440" fill="#16a34a"/>
+</svg>

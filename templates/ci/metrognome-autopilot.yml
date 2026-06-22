@@ -1,0 +1,195 @@
+name: metrognome perf autopilot (weekly)
+# Device-FREE template — recommended default.
+# Measures with bundle-size (build-time JS bytes). No device, emulator, or Metro required.
+# Detects device-only findings (listing/re-renders/memory-leaks/first-load) but defers them
+# in the PR body rather than applying unmeasured fixes.
+#
+# Setup (one-time):
+#   1. Copy this file to .github/workflows/ in your RN repo.
+#   2. Add ANTHROPIC_API_KEY as a repo secret.
+#   3. Enable "Allow GitHub Actions to create and approve pull requests" in repo Settings →
+#      Actions → General → Workflow permissions. (Required for gh pr create to succeed.)
+#   4. Replace the plugin_marketplaces URL with the metrognome release you trust.
+#      Pinning to a tag is recommended: https://github.com/uphold/metrognome.git@v0.2.2
+#   5. Tune cron, top_findings, max_iters, and optionally set vars.METROGNOME_GOAL for a
+#      fixed custom goal on every scheduled run (blank = weekly top-X default).
+#
+# See templates/ci/README.md for the full adoption guide.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"        # Mondays 06:00 UTC — tune to taste
+  workflow_dispatch:
+    inputs:
+      top_findings:
+        description: "How many top bundle-size findings to attempt"
+        default: "3"
+      max_iters:
+        description: "Max autoresearch iterations (budget cap)"
+        default: "4"
+      custom_prompt:
+        description: |
+          Optional: a specific goal instead of top-X (e.g. "reduce onboarding bundle size").
+          Leave blank for the default top-X bundle-size run.
+          For scheduled cron runs, set this as a repo variable: vars.METROGNOME_GOAL.
+        default: ""
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  autopilot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - uses: anthropics/claude-code-action@4d7e1f0cd85743fdc93b1c8040ab54395da024e2 # v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Replace with the metrognome fork/release you trust.
+          # Pin to a tag in production: https://github.com/uphold/metrognome.git@v0.2.2
+          plugin_marketplaces: https://github.com/uphold/metrognome.git
+          plugins: metrognome@metrognome
+          # --allowedTools locks down what the agent may invoke.
+          # Tighten per your security policy; shell variable assignments (RESULT=$(...))
+          # may need broader Bash(*) access — test with workflow_dispatch first.
+          claude_args: >-
+            --model claude-sonnet-4-6
+            --max-turns 80
+            --allowedTools Read,Edit,Write,Bash(node *),Bash(npx *),Bash(npm ci),Bash(git *),Bash(gh pr create *),Bash(gh pr list *),Bash(find *),Bash(wc *),Bash(cat *),Bash(bc *)
+          prompt: |
+            # metrognome CI autopilot — device-free (bundle-size)
+
+            Run NON-INTERACTIVELY. Never present a menu or call AskUserQuestion.
+            Scripts are at ${CLAUDE_PLUGIN_ROOT}/skills/metrognome/scripts/
+            Read .metrognome/config.json if present: `budget` overrides $MAX_ITERS; `k` and `runs` override defaults.
+
+            ## 1. Create branch
+            Create and switch to branch `metrognome/autopilot-$(date +%Y-%m-%d)`.
+            Record BASELINE_SHA=$(git rev-parse HEAD).
+
+            ## 2. Bootstrap .metrognome/
+            node "${CLAUDE_PLUGIN_ROOT}/skills/metrognome/scripts/doctor.mjs" --init
+            Errors here are non-fatal — continue even if toolchain checks warn.
+
+            ## 3. Map debt
+            node "${CLAUDE_PLUGIN_ROOT}/skills/metrognome/scripts/perf_scan.mjs" . --out /tmp/mg-graph.json
+            Read /tmp/mg-graph.json. The `top3` array and full `nodes` array (sorted by debt desc)
+            list hotspots: { file, debt, preset, why, paste }.
+
+            ## 4. Select targets
+            If env $CUSTOM_PROMPT is non-empty → use it as the autoresearch goal; skip to step 5.
+              CONSTRAINT: this template can only MEASURE bundle-size. If the goal needs a device
+              (listing / re-renders / memory-leaks / first-load), note this in the PR and do NOT
+              apply an unmeasured fix.
+            Otherwise (default top-X mode):
+            - Filter all hotspot nodes to preset == "bundle-size". Take top min($TOP_FINDINGS, budget)
+              by debt score — this is the BUNDLE-SIZE SUBSET ranking, not the overall top-X.
+            - Collect the remaining overall top hotspots (non-bundle-size) as DEFERRED for the PR body.
+            - If zero bundle-size findings: print "no bundle-size findings — exiting without PR" and exit 0.
+
+            ## 5. Measure baseline bundle bytes (before any fix)
+            Detect project type:
+            - Expo: node_modules/expo exists OR app.json has an "expo" key.
+              Build:  npx expo export --platform ios --output-dir /tmp/mg-base 2>/dev/null
+              Bytes:  find /tmp/mg-base -name '*.js' ! -name '*.map' | xargs cat | wc -c
+            - Bare RN: npx react-native bundle --platform ios --dev false \
+                         --entry-file index.js --bundle-output /tmp/mg-bundle-base.js 2>/dev/null
+              Bytes:  wc -c < /tmp/mg-bundle-base.js
+            Store result as ORIGINAL_BYTES and BEFORE_BYTES (they start equal).
+
+            ## 6. Autoresearch loop — one fix at a time, capped at min($MAX_ITERS, budget) total
+            For each selected finding:
+
+              a) PROPOSE one atomic fix: replace barrel imports with direct leaf imports,
+                 code-split a rarely-used screen, or swap a heavy dep for a lighter one.
+                 Change the minimal set of files needed for that one fix.
+
+              b) MEASURE candidate bundle bytes (same detect/build as step 5, fresh output dir).
+                 Store as AFTER_BYTES.
+
+              c) GATE — run stats.mjs and parse the JSON `decision` field:
+                   node "${CLAUDE_PLUGIN_ROOT}/skills/metrognome/scripts/stats.mjs" \
+                     --baseline "$BEFORE_BYTES" --candidate "$AFTER_BYTES" \
+                     --min-effect 5000 --k 2 --direction lower --unit bytes
+                 stats.mjs always exits 0; read its JSON stdout and check `decision`.
+                 min-effect=5000 bytes is the absolute floor (tune in README if desired).
+
+              d) If decision == "KEEP":
+                   git add <only the files you modified — never git add -A>
+                   git commit -m "perf(<target>): <one-line description> [metrognome]"
+                   Update BEFORE_BYTES = AFTER_BYTES for subsequent iterations.
+                   Increment KEPT_COUNT.
+
+              e) If decision == "REVERT":
+                   git restore .
+                   Log the REVERT with the stats output for the PR "Reverted" list.
+
+            ## 7. Squash kept commits into one, then open PR
+            If KEPT_COUNT == 0: print "no improvements cleared the gate — no PR" and exit 0.
+
+            Otherwise:
+              git reset --soft "$BASELINE_SHA"
+              Compute NET_DELTA = ORIGINAL_BYTES − BEFORE_BYTES (final bundle size)
+              Compute NET_PCT  = NET_DELTA * 100 / ORIGINAL_BYTES (one decimal place)
+              git commit -m "perf: metrognome weekly autopilot — bundle −${NET_PCT}% (${KEPT_COUNT} fix(es))"
+              git push -u origin HEAD
+
+            Open the PR with gh pr create. Use the body format below. Fill every table with
+            actual numbers from the run — no placeholders.
+
+            PR TITLE:  perf: metrognome autopilot — bundle −${NET_PCT}% (${KEPT_COUNT} fix(es))
+
+            PR BODY (markdown):
+            ---
+            ## TL;DR
+            Bundle reduced by **<NET_DELTA bytes> (−<NET_PCT>%)** in <KEPT_COUNT> iteration(s).
+
+            ## Fixed (measured)
+            | File | Detector / Guide | Fix | Before → After (bytes) | Δ vs noise band | Decision |
+            |---|---|---|---|---|---|
+            <!-- one row per KEEP iteration, numbers from stats.mjs JSON -->
+
+            ## Why these
+            Debt ranking from Perf Map — each fixed finding's debt score and why it led the
+            bundle-size subset list. <!-- fill from graph.json debt values and `why` field -->
+
+            ## Detected, deferred (device-only findings)
+            These appeared in the Perf Map but cannot be measured without a device. Use
+            `metrognome-autopilot-device.yml` to address them.
+            | Overall rank | File | Preset | Detector | Debt |
+            |---|---|---|---|---|
+            <!-- one row per deferred non-bundle-size top finding -->
+
+            ## Method
+            Single-build measurement (bundle size is deterministic — one sample per state is sound).
+            Gate: `improvement > max(5000 bytes, 2·pooledStdDev)`.
+            Reverted attempts: <!-- list any REVERT iterations with their stats output -->
+
+            ## Review checklist
+            - [ ] Verify bundle claim with `npm run report` or source-map explorer
+            - [ ] Confirm no missing exports after any barrel-file refactoring (run app + tests)
+            - [ ] Merge when satisfied — autopilot never auto-merges
+            ---
+
+            ## Scope constraints (hard limits — never violate these)
+            - Stage only the files you modified: `git add <file1> <file2> ...`. Never `git add -A`.
+            - One change per iteration. Never stack multiple fixes in a single commit.
+            - Do not touch .github/, metrognome plugin files, or CI configuration.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TOP_FINDINGS: ${{ github.event.inputs.top_findings || '3' }}
+          MAX_ITERS: ${{ github.event.inputs.max_iters || '4' }}
+          # For scheduled cron runs, set a fixed goal via a repo variable:
+          #   vars.METROGNOME_GOAL = "reduce bundle size in the payments flow"
+          # Manual dispatch inputs take precedence when both are set.
+          CUSTOM_PROMPT: ${{ github.event.inputs.custom_prompt || vars.METROGNOME_GOAL || '' }}

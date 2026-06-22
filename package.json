@@ -1,0 +1,52 @@
+{
+  "name": "metrognome",
+  "version": "0.2.5",
+  "type": "module",
+  "description": "Autonomous, scientific React Native performance optimization — propose → measure → keep/revert loop, 3D Perf Map, and per-repo performance memory.",
+  "author": {
+    "name": "Xavier",
+    "email": "xavi-999@users.noreply.github.com"
+  },
+  "homepage": "https://github.com/uphold/metrognome",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/uphold/metrognome.git"
+  },
+  "bugs": "https://github.com/uphold/metrognome/issues",
+  "keywords": ["react-native", "expo", "performance", "metro", "hermes", "profiling", "claude-code", "plugin", "codex", "cursor", "gemini-cli", "copilot", "ai-agent"],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "bin": {
+    "metrognome": "bin/metrognome.mjs"
+  },
+  "files": [
+    "bin",
+    "skills/metrognome/scripts",
+    "skills/metrognome/assets",
+    "skills/metrognome/references",
+    "skills/metrognome/SKILL.md",
+    "README.md",
+    "LICENSE",
+    "AGENTS.md",
+    "COMPATIBILITY.md"
+  ],
+  "scripts": {
+    "scan": "node skills/metrognome/scripts/perf_scan.mjs",
+    "map": "node skills/metrognome/scripts/build_perf_map.mjs",
+    "report": "node skills/metrognome/scripts/build_run_report.mjs",
+    "stats:test": "node skills/metrognome/scripts/stats.mjs --self-test",
+    "doctor:test": "node skills/metrognome/scripts/doctor.mjs --self-test",
+    "playbook": "node skills/metrognome/scripts/build_playbook.mjs",
+    "playbook:test": "node skills/metrognome/scripts/build_playbook.mjs --self-test",
+    "smoke": "node skills/metrognome/scripts/perf_scan.mjs examples/sample-rn-app --out /tmp/mg-graph.json --quiet && node skills/metrognome/scripts/build_perf_map.mjs /tmp/mg-graph.json --out /tmp/mg-map.html && node skills/metrognome/scripts/build_run_report.mjs skills/metrognome/assets/run-state.sample.json --out /tmp/mg-report.html",
+    "prepublishOnly": "npm test",
+    "test": "npm run stats:test && npm run doctor:test && npm run playbook:test"
+  },
+  "dependencies": {
+    "@babel/parser": "^7.29.7",
+    "@babel/traverse": "^7.29.7",
+    "ws": "^8.18.0"
+  }
+}
