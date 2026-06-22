@@ -1,0 +1,11 @@
+node_modules/
+.DS_Store
+*.log
+MVP-SCOPE.md
+
+# Runtime artifacts produced against a target RN app (these live in the
+# target repo's own .metrognome/, never in the plugin). Ignored here so a
+# test run inside this repo doesn't pollute it.
+.metrognome/
+graph.json
+perf-map.html

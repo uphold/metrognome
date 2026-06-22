@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta http-equiv="refresh" content="3" />
+<title>metrognome · run report</title>
+<style>
+  /* ------------------------------------------------------------------ *
+   * metrognome run report — light "performance studio" theme.           *
+   * Auto-refreshes every 3 s while a run is live. Standalone, offline.  *
+   * ------------------------------------------------------------------ */
+  :root {
+    --bg:        #ffffff;
+    --bg-2:      #f6f8fa;
+    --panel:     rgba(255, 255, 255, 0.86);
+    --panel-2:   #ffffff;
+    --tint:      #f0fdf4;
+    --hair:      rgba(15, 23, 42, 0.08);
+    --hair-2:    rgba(15, 23, 42, 0.14);
+    --text:      #0f172a;
+    --dim:       #475569;
+    --faint:     #94a3b8;
+    --accent:    #16a34a;
+    --accent-2:  #22c55e;
+    --accent-ink:#052e16;
+    --crit:      #dc2626;
+    --high:      #ea580c;
+    --med:       #d97706;
+    --cold:      #64748b;
+    --keep-bg:   #f0fdf4;
+    --keep-border:#16a34a;
+    --revert-bg: #f8fafc;
+    --revert-border:#94a3b8;
+    --drop:      0 4px 16px -4px rgba(15, 23, 42, 0.10);
+    --ease:      cubic-bezier(0.16, 1, 0.3, 1);
+    --sans:      -apple-system, "SF Pro Text", BlinkMacSystemFont, ui-sans-serif, "Segoe UI", Roboto, sans-serif;
+    --mono:      "SF Mono", ui-monospace, "JetBrains Mono", "Roboto Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text);
+    font-family: var(--sans); font-size: 14px; line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    background-image: linear-gradient(180deg, var(--tint) 0%, var(--bg) 280px); }
+
+  /* ---- layout ---- */
+  .page { max-width: 860px; margin: 0 auto; padding: 32px 24px 64px; }
+
+  /* ---- header ---- */
+  .hd { display: flex; align-items: center; gap: 14px; padding-bottom: 20px;
+    border-bottom: 1px solid var(--hair); margin-bottom: 28px; }
+  .logo { display: flex; align-items: center; gap: 8px; }
+  .logo svg { display: block; }
+  .logo-text { font-size: 17px; font-weight: 700; letter-spacing: -0.02em; }
+  .logo-text b { color: var(--accent); font-weight: 700; }
+  .hd-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .status-pill { font-family: var(--mono); font-size: 11px; font-weight: 600;
+    padding: 3px 10px; border-radius: 20px; letter-spacing: 0.04em; }
+  .status-pill.running { background: var(--tint); color: var(--accent);
+    border: 1px solid rgba(22,163,74,0.3); }
+  .status-pill.done { background: #f0fdf4; color: var(--accent);
+    border: 1px solid rgba(22,163,74,0.4); }
+  .refresh-note { font-family: var(--mono); font-size: 10px; color: var(--faint); }
+
+  /* ---- summary card ---- */
+  .summary { background: var(--bg-2); border: 1px solid var(--hair); border-radius: 14px;
+    padding: 20px 22px; margin-bottom: 24px; display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; }
+  .s-item .s-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--faint); margin-bottom: 3px; }
+  .s-item .s-val { font-family: var(--mono); font-size: 14px; font-weight: 600; color: var(--text); }
+  .s-item .s-val.accent { color: var(--accent); }
+
+  /* ---- baseline card ---- */
+  .baseline { background: var(--bg-2); border: 1px solid var(--hair); border-radius: 14px;
+    padding: 18px 22px; margin-bottom: 28px; }
+  .section-title { font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--faint); margin: 0 0 12px; }
+  .baseline-stat { display: flex; gap: 28px; align-items: baseline; }
+  .big-num { font-family: var(--mono); font-size: 32px; font-weight: 600;
+    letter-spacing: -0.03em; color: var(--text); }
+  .big-unit { font-family: var(--mono); font-size: 14px; color: var(--dim); margin-left: 4px; }
+  .big-std { font-family: var(--mono); font-size: 14px; color: var(--faint); }
+
+  /* ---- trend chart card ---- */
+  .trend { background: var(--bg-2); border: 1px solid var(--hair); border-radius: 14px;
+    padding: 18px 22px; margin-bottom: 24px; }
+  .trend svg { width: 100%; display: block; overflow: visible; }
+  .trend-line { fill: none; stroke: var(--accent); stroke-width: 2.5;
+    stroke-linejoin: round; stroke-linecap: round; }
+  .trend-dot-keep { fill: var(--accent); stroke: var(--bg-2); stroke-width: 2; }
+  .trend-dot-hold { fill: var(--faint); }
+  .trend-ghost { fill: var(--bg-2); stroke: var(--cold); stroke-width: 1.5; }
+  .trend-ghost-link { stroke: var(--hair-2); stroke-width: 1; stroke-dasharray: 3 3; fill: none; }
+  .trend-grid { stroke: var(--hair); stroke-width: 1; fill: none; }
+  .trend-axis-label { font-family: var(--mono); font-size: 10px; fill: var(--faint); }
+  .trend-endpoints { font-family: var(--mono); font-size: 12px; color: var(--dim);
+    display: flex; justify-content: space-between; margin-top: 8px; }
+  .trend-endpoints b { color: var(--accent); font-weight: 700; }
+
+  /* ---- net delta banner ---- */
+  .net-delta { background: var(--tint); border: 1px solid rgba(22,163,74,0.25);
+    border-radius: 12px; padding: 16px 22px; margin-bottom: 28px;
+    display: flex; align-items: center; gap: 16px; }
+  .net-delta-num { font-family: var(--mono); font-size: 28px; font-weight: 700;
+    color: var(--accent); letter-spacing: -0.03em; }
+  .net-delta-label { font-size: 13px; color: var(--dim); }
+
+  /* ---- iterations ---- */
+  .iter-list { display: flex; flex-direction: column; gap: 14px; }
+  .iter { border-radius: 12px; border: 1.5px solid var(--revert-border);
+    background: var(--revert-bg); padding: 16px 18px; }
+  .iter.keep { border-color: var(--keep-border); background: var(--keep-bg); }
+
+  .iter-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .iter-n { font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--faint); }
+  .badge { font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+    padding: 2px 9px; border-radius: 20px; }
+  .badge.keep { background: var(--accent); color: var(--accent-ink); }
+  .badge.revert { background: var(--cold); color: #fff; }
+  .iter-hypo { font-weight: 600; font-size: 13.5px; color: var(--text); }
+  .iter-guide { font-family: var(--mono); font-size: 10px; color: var(--faint);
+    margin-left: auto; }
+
+  .iter-change { font-size: 12.5px; color: var(--dim); margin-bottom: 10px; }
+
+  .iter-stats { display: flex; gap: 20px; align-items: center; }
+  .iter-dist { font-family: var(--mono); font-size: 12px; }
+  .iter-dist .label { color: var(--faint); font-size: 10px; letter-spacing: 0.1em;
+    text-transform: uppercase; margin-bottom: 2px; }
+  .iter-dist .val { color: var(--text); }
+  .iter-arrow { color: var(--faint); font-size: 16px; }
+  .iter-delta { font-family: var(--mono); font-size: 13px; font-weight: 600; }
+  .iter-delta.keep { color: var(--accent); }
+  .iter-delta.revert { color: var(--cold); }
+  .iter-noise { font-family: var(--mono); font-size: 10px; color: var(--faint);
+    margin-left: 6px; }
+  .iter-commit { font-family: var(--mono); font-size: 10px; color: var(--faint);
+    margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--hair); }
+
+  /* ---- commit list ---- */
+  .commits { margin-top: 32px; }
+  .commit-item { font-family: var(--mono); font-size: 12px; color: var(--dim);
+    padding: 6px 0; border-bottom: 1px solid var(--hair); }
+  .commit-item:last-child { border-bottom: none; }
+  .commit-sha { color: var(--accent); margin-right: 8px; }
+
+  /* hide refresh note when done */
+  .status-done .refresh-note { display: none; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="hd">
+    <div class="logo">
+      <svg width="20" height="20" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+        <rect x="1"  y="13" width="3.4" height="7"  rx="1.2" fill="#22c55e" opacity="0.55"/>
+        <rect x="6.3" y="9" width="3.4" height="11" rx="1.2" fill="#22c55e" opacity="0.75"/>
+        <rect x="11.6" y="4" width="3.4" height="16" rx="1.2" fill="#16a34a"/>
+        <rect x="16.9" y="10" width="3.4" height="10" rx="1.2" fill="#22c55e" opacity="0.65"/>
+      </svg>
+      <span class="logo-text">metro<b>g</b>nome</span>
+    </div>
+    <span style="color:var(--faint);font-size:12px;">run report</span>
+    <div class="hd-right" id="hd-right"><!-- injected --></div>
+  </header>
+
+  <div id="content"><!-- injected --></div>
+
+</div>
+<script>
+const DATA = /*__RUN_DATA__*/;
+
+const esc = (s) => String(s == null ? '' : s)
+  .replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function buildTrend(DATA) {
+  const b = DATA.baseline || {};
+  if (b.mean == null) return '';
+  const iters = DATA.iterations || [];
+
+  let committed = b.mean;
+  const pts = [{ i: 0, y: committed, kind: 'baseline' }];
+  const ghosts = [];
+
+  for (let j = 0; j < iters.length; j++) {
+    const it = iters[j];
+    const cm = (it.candidate || {}).mean;
+    if (it.decision === 'KEEP' && cm != null) {
+      committed = cm;
+      pts.push({ i: j + 1, y: committed, kind: 'keep' });
+    } else {
+      pts.push({ i: j + 1, y: committed, kind: 'hold' });
+      if (cm != null) ghosts.push({ i: j + 1, y: cm });
+    }
+  }
+
+  const allVals = [b.mean, ...iters.map(it => (it.candidate || {}).mean).filter(v => v != null)];
+  const yMax = Math.max(...allVals) * 1.08;
+  const N = pts.length;
+
+  const W = 760, H = 200, padL = 44, padR = 16, padT = 16, padB = 28;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+  const f = v => v.toFixed(1);
+  const px = idx => padL + (N > 1 ? idx * plotW / (N - 1) : plotW / 2);
+  const py = v => padT + plotH * (1 - v / yMax);
+
+  const gridHtml = [0.5, 0.25].map(frac => {
+    const gv = yMax * frac, gy = py(gv);
+    return `<line class="trend-grid" x1="${f(padL)}" y1="${f(gy)}" x2="${f(W - padR)}" y2="${f(gy)}"/>` +
+           `<text class="trend-axis-label" x="${padL - 6}" y="${f(gy + 3.5)}" text-anchor="end">${Math.round(gv)}</text>`;
+  }).join('');
+
+  const xLabelsHtml = pts.map((p, idx) =>
+    `<text class="trend-axis-label" x="${f(px(idx))}" y="${f(H - 4)}" text-anchor="middle">${idx === 0 ? 'base' : idx}</text>`
+  ).join('');
+
+  const bottom = padT + plotH;
+  const areaD = `M ${f(px(0))} ${f(bottom)} ${pts.map((p, idx) => `L ${f(px(idx))} ${f(py(p.y))}`).join(' ')} L ${f(px(N - 1))} ${f(bottom)} Z`;
+  const lineD = pts.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${f(px(idx))} ${f(py(p.y))}`).join(' ');
+
+  const ghostHtml = ghosts.map(g => {
+    const gx = f(px(g.i)), gy = f(py(g.y)), holdY = f(py(pts[g.i].y));
+    return `<line class="trend-ghost-link" x1="${gx}" y1="${holdY}" x2="${gx}" y2="${gy}"/>` +
+           `<circle class="trend-ghost" cx="${gx}" cy="${gy}" r="5"/>`;
+  }).join('');
+
+  const dotHtml = pts.map((p, idx) => {
+    const x = f(px(idx)), y = f(py(p.y));
+    return p.kind === 'hold'
+      ? `<circle class="trend-dot-hold" cx="${x}" cy="${y}" r="2.5"/>`
+      : `<circle class="trend-dot-keep" cx="${x}" cy="${y}" r="${p.kind === 'baseline' ? 4.5 : 4}"/>`;
+  }).join('');
+
+  const unit = esc(DATA.unit || '');
+  return `
+  <div class="trend">
+    <div class="section-title">metric trajectory</div>
+    <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="tg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.28"/>
+          <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      ${gridHtml}
+      ${xLabelsHtml}
+      <path class="trend-area" d="${areaD}" fill="url(#tg)"/>
+      <path class="trend-line" d="${lineD}" id="trend-line"/>
+      ${ghostHtml}
+      ${dotHtml}
+    </svg>
+    <div class="trend-endpoints">
+      <span><b>${pts[0].y}${unit}</b> baseline</span>
+      <span>current <b>${pts[N - 1].y}${unit}</b></span>
+    </div>
+  </div>`;
+}
+
+// Header right
+const isDone = DATA.status === 'done' || DATA.status === 'complete';
+document.getElementById('hd-right').innerHTML = `
+  <span class="status-pill ${isDone ? 'done' : 'running'}">${isDone ? 'DONE' : 'RUNNING'}</span>
+  ${isDone ? '' : '<span class="refresh-note">auto-refresh · 3s</span>'}
+`;
+
+// Summary card
+const summaryHtml = `
+  <div class="summary">
+    <div class="s-item"><div class="s-label">preset</div><div class="s-val">${esc(DATA.preset)}</div></div>
+    <div class="s-item"><div class="s-label">target</div><div class="s-val">${esc(DATA.target || '—')}</div></div>
+    <div class="s-item"><div class="s-label">unit</div><div class="s-val">${esc(DATA.unit)}</div></div>
+    <div class="s-item"><div class="s-label">direction</div><div class="s-val">${esc(DATA.direction)}</div></div>
+    <div class="s-item"><div class="s-label">iterations</div><div class="s-val accent">${(DATA.iterations || []).length}</div></div>
+    <div class="s-item"><div class="s-label">started</div><div class="s-val">${DATA.startedAt ? new Date(DATA.startedAt).toLocaleTimeString() : '—'}</div></div>
+  </div>`;
+
+// Baseline card
+const b = DATA.baseline || {};
+const baselineHtml = `
+  <div class="baseline">
+    <div class="section-title">baseline</div>
+    <div class="baseline-stat">
+      <span class="big-num">${b.mean != null ? b.mean : '—'}</span>
+      <span class="big-unit">${esc(DATA.unit || '')}</span>
+      <span class="big-std">± ${b.std != null ? b.std : '—'} · n=${b.runs || DATA.runs || '?'}</span>
+    </div>
+  </div>`;
+
+// Trend chart
+const trendHtml = buildTrend(DATA);
+
+// Net delta
+const netHtml = DATA.netDelta ? `
+  <div class="net-delta">
+    <span class="net-delta-num">${esc(DATA.netDelta)}</span>
+    <span class="net-delta-label">net improvement across ${(DATA.iterations || []).filter(i => i.decision === 'KEEP').length} kept iteration(s)</span>
+  </div>` : '';
+
+// Iterations
+const iters = (DATA.iterations || []).map((it) => {
+  const isKeep = it.decision === 'KEEP';
+  const bc = it.candidate || {};
+  return `
+  <div class="iter ${isKeep ? 'keep' : ''}">
+    <div class="iter-head">
+      <span class="iter-n">#${it.n}</span>
+      <span class="badge ${isKeep ? 'keep' : 'revert'}">${it.decision}</span>
+      <span class="iter-hypo">${esc(it.hypothesis)}</span>
+      ${it.guide ? `<span class="iter-guide">${esc(it.guide)}</span>` : ''}
+    </div>
+    ${it.change ? `<div class="iter-change">${esc(it.change)}</div>` : ''}
+    <div class="iter-stats">
+      <div class="iter-dist">
+        <div class="label">baseline</div>
+        <div class="val">${b.mean != null ? b.mean : '—'} ± ${b.std != null ? b.std : '—'}</div>
+      </div>
+      <span class="iter-arrow">→</span>
+      <div class="iter-dist">
+        <div class="label">candidate</div>
+        <div class="val">${bc.mean != null ? bc.mean : '—'} ± ${bc.std != null ? bc.std : '—'}</div>
+      </div>
+      <span class="iter-delta ${isKeep ? 'keep' : 'revert'}">${esc(it.delta || '—')}</span>
+      ${it.noiseBand != null ? `<span class="iter-noise">noise ±${it.noiseBand}</span>` : ''}
+    </div>
+    ${it.commit ? `<div class="iter-commit">commit <span class="commit-sha">${esc(it.commit)}</span></div>` : ''}
+  </div>`;
+}).join('');
+
+// Commit list
+const commitsHtml = (DATA.commits || []).length ? `
+  <div class="commits">
+    <div class="section-title" style="margin-top:32px;">commits</div>
+    ${(DATA.commits || []).map(sha => `<div class="commit-item"><span class="commit-sha">${esc(sha)}</span></div>`).join('')}
+  </div>` : '';
+
+document.getElementById('content').innerHTML =
+  summaryHtml + trendHtml + baselineHtml + netHtml +
+  `<div class="section-title" style="margin-bottom:12px;">iterations</div>` +
+  `<div class="iter-list">${iters || '<div style="color:var(--faint);font-family:var(--mono);font-size:12px;">No iterations yet — run in progress…</div>'}</div>` +
+  commitsHtml;
+
+</script>
+</body>
+</html>

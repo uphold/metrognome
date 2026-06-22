@@ -1,0 +1,29 @@
+name: Feature request
+description: Propose a new capability, preset, detector, or workflow improvement.
+title: "[feat] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What can't you do today, or what is painful? Real-world context helps (app size, perf target, workflow).
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-behavior
+    attributes:
+      label: Proposed behavior
+      description: What should metrognome do? If you have a CLI/menu/skill shape in mind, sketch it.
+    validations:
+      required: true
+
+  - type: input
+    id: affected-area
+    attributes:
+      label: Affected preset / mode
+      description: Which part this touches (first-load · listing · memory-leaks · bundle-size · re-renders · Perf Map 3D · Doctor · Configurations · scripts · CI autopilot), or "new".
+      placeholder: Perf Map 3D
+    validations:
+      required: false

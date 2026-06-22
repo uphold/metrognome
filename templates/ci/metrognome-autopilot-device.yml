@@ -1,0 +1,225 @@
+name: metrognome perf autopilot — device (weekly)
+# ADVANCED / DEVICE template — opt-in.
+# Boots an Android emulator so all presets are measurable: listing, re-renders,
+# memory-leaks, first-load, AND bundle-size. Heavier (~45 min), can flake on
+# emulator boot. Requires KVM support on the runner.
+#
+# Only use this if the device-free template (metrognome-autopilot.yml) is not
+# measuring the findings that matter most to your app.
+#
+# Setup (one-time):
+#   1. Copy this file to .github/workflows/ in your RN repo.
+#   2. Add ANTHROPIC_API_KEY as a repo secret.
+#   3. Enable "Allow GitHub Actions to create and approve pull requests" in repo Settings →
+#      Actions → General → Workflow permissions. (Required for gh pr create to succeed.)
+#   4. Replace the plugin_marketplaces URL with the metrognome release you trust.
+#   5. Ensure your RN app builds and runs on Android (test locally first).
+#   6. Tune cron, top_findings, max_iters, preset. Set vars.METROGNOME_GOAL for a fixed goal.
+#
+# See templates/ci/README.md for the full adoption guide.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"        # Mondays 06:00 UTC — tune to taste
+  workflow_dispatch:
+    inputs:
+      top_findings:
+        description: "How many top debt findings to attempt"
+        default: "3"
+      max_iters:
+        description: "Max autoresearch iterations (budget cap)"
+        default: "4"
+      preset:
+        description: "Preset to run (listing / re-renders / memory-leaks / first-load / bundle-size / auto)"
+        default: "auto"
+      custom_prompt:
+        description: |
+          Optional: a specific goal instead of top-X (e.g. "fix scroll jank on the home feed").
+          Leave blank for the default top-X run. Set vars.METROGNOME_GOAL for scheduled cron runs.
+        default: ""
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  autopilot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # Enable KVM for hardware-accelerated Android emulator (required on ubuntu-latest).
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          sudo apt-get install -y cpu-checker
+          kvm-ok
+
+      # Boot Android emulator. The emulator persists for subsequent steps.
+      - name: Boot Android emulator
+        uses: reactivecircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a # v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: Nexus 6
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          disable-animations: true
+          script: echo "Emulator booted"
+
+      # Start Metro in the background so the app can bundle and connect.
+      - name: Start Metro
+        run: |
+          npx react-native start &>/tmp/metro.log &
+          echo "METRO_PID=$!" >> $GITHUB_ENV
+          # Wait up to 30 s for Metro to be ready on :8081
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8081/status 2>/dev/null && break
+            sleep 1
+          done
+
+      # Start agent-react-devtools daemon (React DevTools telemetry on port 8097).
+      - name: Start agent-react-devtools
+        run: |
+          npx agent-react-devtools start &>/tmp/ard.log &
+          echo "ARD_PID=$!" >> $GITHUB_ENV
+          sleep 3
+
+      - uses: anthropics/claude-code-action@4d7e1f0cd85743fdc93b1c8040ab54395da024e2 # v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Replace with the metrognome fork/release you trust.
+          plugin_marketplaces: https://github.com/uphold/metrognome.git
+          plugins: metrognome@metrognome
+          # metro-mcp is bundled via the plugin's .mcp.json — no extra config needed.
+          claude_args: >-
+            --model claude-sonnet-4-6
+            --max-turns 100
+            --allowedTools Read,Edit,Write,Bash(node *),Bash(npx *),Bash(npm ci),Bash(git *),Bash(gh pr create *),Bash(gh pr list *),Bash(find *),Bash(wc *),Bash(cat *),Bash(bc *),Bash(adb *),Bash(agent-device *),Bash(agent-react-devtools *)
+          prompt: |
+            # metrognome CI autopilot — device (all presets)
+
+            Run NON-INTERACTIVELY. Never present a menu or call AskUserQuestion.
+            An Android emulator is already running. Metro is on port 8081. agent-react-devtools
+            daemon is on port 8097. Scripts are at ${CLAUDE_PLUGIN_ROOT}/skills/metrognome/scripts/
+            metro-mcp is available via MCP (bundled with the plugin). Read references/tools.md
+            before invoking agent-device, agent-react-devtools, or metro-mcp.
+            Read .metrognome/config.json if present: `budget` overrides $MAX_ITERS; `k`/`runs` override defaults.
+
+            ## 1. Create branch
+            Create and switch to branch `metrognome/autopilot-$(date +%Y-%m-%d)`.
+            Record BASELINE_SHA=$(git rev-parse HEAD).
+
+            ## 2. Bootstrap .metrognome/
+            node "${CLAUDE_PLUGIN_ROOT}/skills/metrognome/scripts/doctor.mjs" --init
+            Errors here are non-fatal — continue even if some live-session checks warn.
+
+            ## 3. Map debt
+            node "${CLAUDE_PLUGIN_ROOT}/skills/metrognome/scripts/perf_scan.mjs" . --out /tmp/mg-graph.json
+            Read /tmp/mg-graph.json. The `top3` array and full `nodes` array (sorted by debt desc)
+            list hotspots: { file, debt, preset, why, paste }.
+
+            ## 4. Select targets
+            If env $CUSTOM_PROMPT is non-empty → use it as the autoresearch goal; skip to step 5.
+            If env $PRESET is "auto" or empty → select the overall top min($TOP_FINDINGS, budget)
+              hotspot findings regardless of preset (all presets are measurable with the emulator).
+            If env $PRESET names a specific preset → filter to that preset, take top $TOP_FINDINGS.
+            Collect non-selected top hotspots as DEFERRED for the PR body.
+            If zero matching findings: print "no matching findings — exiting without PR" and exit 0.
+
+            ## 5. Autoresearch loop — one fix at a time, capped at min($MAX_ITERS, budget) total
+            For each selected finding, use its preset to route measurement:
+
+            PRESET ROUTING (follow references/presets.md for each):
+            - bundle-size:    build JS bundle + measure bytes (see device-free template steps 5/6c)
+            - listing:        agent-device scroll → agent-react-devtools profile rerenders + slow
+            - re-renders:     agent-react-devtools profile rerenders + diff before/after
+            - memory-leaks:   heap_sample.mjs --cycles N across open/close (Hermes required)
+            - first-load:     agent-device open from cold; metro-mcp CPU profile of startup
+
+            For each iteration:
+              a) PROPOSE one atomic fix per the preset's candidate fixes (see presets.md).
+              b) MEASURE baseline metric (N runs, one warmup discarded per measurement.md).
+              c) Apply fix.
+              d) MEASURE candidate metric (same N runs).
+              e) GATE — run stats.mjs and parse the JSON `decision` field:
+                   node "${CLAUDE_PLUGIN_ROOT}/skills/metrognome/scripts/stats.mjs" \
+                     --baseline "<baseline_values_csv>" --candidate "<candidate_values_csv>" \
+                     --min-effect <preset_floor> --k 2 --direction <lower|higher> --unit <ms|bytes|fps>
+                 stats.mjs always exits 0; read its JSON stdout and check `decision`.
+                 Gate floors by preset: bundle-size 5000 bytes · listing 20ms · re-renders 1 count ·
+                 memory-leaks 2000000 bytes · first-load 50ms.
+
+              f) If decision == "KEEP":
+                   git add <only the files you modified — never git add -A>
+                   git commit -m "perf(<target>/<preset>): <one-line description> [metrognome]"
+                   Increment KEPT_COUNT.
+
+              g) If decision == "REVERT":
+                   git restore .
+                   Log the REVERT with the stats output for the PR "Reverted" list.
+
+            ## 6. Squash kept commits into one, then open PR
+            If KEPT_COUNT == 0: print "no improvements cleared the gate — no PR" and exit 0.
+
+            Otherwise:
+              git reset --soft "$BASELINE_SHA"
+              Summarize the net gains across all kept iterations (e.g. "−8.2% bundle, −3 re-renders")
+              git commit -m "perf: metrognome weekly autopilot — <summary>"
+              git push -u origin HEAD
+
+            Open the PR with gh pr create. Use the body format below. Fill every table with
+            actual numbers from the run — no placeholders.
+
+            PR TITLE:  perf: metrognome autopilot (device) — <summary of gains>
+
+            PR BODY (markdown):
+            ---
+            ## TL;DR
+            <Net measured gains across all kept iterations — headline numbers.>
+
+            ## Fixed (measured)
+            | File | Preset | Detector / Guide | Fix | Before → After | Δ vs noise band | Decision |
+            |---|---|---|---|---|---|---|
+            <!-- one row per KEEP iteration, numbers from stats.mjs JSON -->
+
+            ## Why these
+            Debt ranking from Perf Map — each fixed finding's debt score and why it topped the list.
+            <!-- fill from graph.json debt values and `why` field -->
+
+            ## Detected, deferred
+            | Overall rank | File | Preset | Detector | Debt |
+            |---|---|---|---|---|
+            <!-- non-selected top findings -->
+
+            ## Method
+            N-run protocol per references/measurement.md. Gate: `improvement > max(floor, 2·pooledStdDev)`.
+            Reverted attempts: <!-- list any REVERT iterations -->
+
+            ## Review checklist
+            - [ ] Verify measured gains on a physical device (emulator FPS differs from device)
+            - [ ] Run full test suite; check no missing exports or broken imports
+            - [ ] Merge when satisfied — autopilot never auto-merges
+            ---
+
+            ## Scope constraints (hard limits — never violate these)
+            - Stage only the files you modified: `git add <file1> <file2> ...`. Never `git add -A`.
+            - One change per iteration. Never stack multiple fixes in a single commit.
+            - Do not touch .github/, metrognome plugin files, or CI configuration.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TOP_FINDINGS: ${{ github.event.inputs.top_findings || '3' }}
+          MAX_ITERS: ${{ github.event.inputs.max_iters || '4' }}
+          PRESET: ${{ github.event.inputs.preset || 'auto' }}
+          CUSTOM_PROMPT: ${{ github.event.inputs.custom_prompt || vars.METROGNOME_GOAL || '' }}

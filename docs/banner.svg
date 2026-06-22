@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 320" width="1280" height="320">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f0fdf4"/>
+      <stop offset="100%" stop-color="#ffffff"/>
+    </linearGradient>
+    <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#16a34a"/>
+      <stop offset="100%" stop-color="#22c55e"/>
+    </linearGradient>
+    <!-- subtle grid pattern -->
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(15,23,42,0.04)" stroke-width="0.5"/>
+    </pattern>
+  </defs>
+
+  <!-- background -->
+  <rect width="1280" height="320" fill="url(#bg)"/>
+  <rect width="1280" height="320" fill="url(#grid)"/>
+
+  <!-- left accent bar -->
+  <rect x="0" y="0" width="4" height="320" fill="#16a34a"/>
+
+  <!-- gnome mark: metronome triangle (hat) + pendulum + face elements -->
+  <!-- hat — tall isosceles triangle = metronome body + gnome's pointed hat -->
+  <polygon points="128,58 78,202 178,202" fill="url(#barGrad)" stroke="#15803d" stroke-width="1.5" stroke-linejoin="round"/>
+  <!-- scale ticks — metronome calibration lines (subtle, inside hat) -->
+  <line x1="119" y1="103" x2="137" y2="103" stroke="white" stroke-width="1.5" opacity="0.4"/>
+  <line x1="107" y1="140" x2="149" y2="140" stroke="white" stroke-width="1.5" opacity="0.4"/>
+  <!-- pendulum pivot dot near apex -->
+  <circle cx="128" cy="76" r="3.5" fill="#052e16"/>
+  <!-- pendulum needle — from pivot, angled 15° right of vertical (mid-swing) -->
+  <line x1="128" y1="76" x2="155" y2="178" stroke="#052e16" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- pendulum bob -->
+  <circle cx="155" cy="178" r="6" fill="#052e16"/>
+  <!-- hat brim — wider than triangle base, darker green -->
+  <rect x="70" y="200" width="116" height="14" rx="5" fill="#15803d" stroke="#166534" stroke-width="0.5"/>
+  <!-- beard — geometric angular shape below brim -->
+  <polygon points="100,214 156,214 143,260 128,278 113,260" fill="#d1fae5" stroke="#86efac" stroke-width="1" stroke-linejoin="round"/>
+  <!-- nose — small rounded ellipse (classic gnome tell) -->
+  <ellipse cx="128" cy="224" rx="9" ry="7" fill="#94a3b8" opacity="0.75"/>
+
+  <!-- wordmark — metro(text) + g(green accent) + nome(text) -->
+  <!-- Using outlined paths for cross-platform consistency -->
+  <!-- "metro" — system sans fallback with outlined feel via text + clip strategy -->
+  <!-- For portability we use text with font-weight 700 and explicit font -->
+  <text x="208" y="184"
+    font-family="-apple-system, 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif"
+    font-size="88" font-weight="700" letter-spacing="-3"
+    fill="#0f172a">metro</text>
+  <text x="430" y="184"
+    font-family="-apple-system, 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif"
+    font-size="88" font-weight="700" letter-spacing="-3"
+    fill="#16a34a">g</text>
+  <text x="470" y="184"
+    font-family="-apple-system, 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif"
+    font-size="88" font-weight="700" letter-spacing="-3"
+    fill="#0f172a">nome</text>
+
+  <!-- hero slogan — the positioning line -->
+  <text x="208" y="222"
+    font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif"
+    font-size="24" font-weight="600" letter-spacing="0"
+    xml:space="preserve"><tspan fill="#0f172a">The autonomous </tspan><tspan fill="#16a34a">performance</tspan><tspan fill="#0f172a"> engineer for React Native</tspan></text>
+  <!-- mechanism line — small, dim secondary print -->
+  <text x="208" y="250"
+    font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif"
+    font-size="14" font-weight="400" letter-spacing="0.5"
+    fill="#94a3b8">propose  →  measure  →  keep / revert</text>
+
+  <!-- right zone — loop diagram hint (minimalist) -->
+  <g transform="translate(980, 100)" opacity="0.18">
+    <!-- three nodes representing propose→measure→keep -->
+    <circle cx="60"  cy="60"  r="32" fill="none" stroke="#16a34a" stroke-width="2"/>
+    <circle cx="200" cy="60"  r="32" fill="none" stroke="#16a34a" stroke-width="2"/>
+    <circle cx="130" cy="190" r="32" fill="none" stroke="#16a34a" stroke-width="2"/>
+    <!-- arrows -->
+    <path d="M 93 60 L 167 60" stroke="#16a34a" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+    <path d="M 185 88 L 148 165" stroke="#16a34a" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+    <path d="M 112 165 L 78 88" stroke="#16a34a" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+    <!-- labels -->
+    <text x="60"  y="65" text-anchor="middle" font-family="monospace" font-size="10" fill="#16a34a">propose</text>
+    <text x="200" y="65" text-anchor="middle" font-family="monospace" font-size="10" fill="#16a34a">measure</text>
+    <text x="130" y="195" text-anchor="middle" font-family="monospace" font-size="10" fill="#16a34a">keep/revert</text>
+  </g>
+  <defs>
+    <marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L6,3 z" fill="#16a34a"/>
+    </marker>
+  </defs>
+
+  <!-- bottom rule -->
+  <rect x="0" y="312" width="1280" height="1" fill="rgba(15,23,42,0.06)"/>
+  <!-- version tag -->
+  <text x="1264" y="304"
+    font-family="monospace" font-size="11" fill="#94a3b8" text-anchor="end">v0.2.0</text>
+</svg>

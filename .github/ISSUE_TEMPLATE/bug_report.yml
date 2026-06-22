@@ -1,0 +1,64 @@
+name: Bug report
+description: Something in metrognome misbehaved — a scan, the loop, the gate, the map, or the report.
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+      placeholder: |
+        Ran /metrognome listing --target FeedScreen; the loop measured the baseline
+        but the first iteration failed with…
+    validations:
+      required: true
+
+  - type: input
+    id: rn-version
+    attributes:
+      label: React Native / Expo version
+      description: From your app's package.json (e.g. "RN 0.83 / Expo SDK 55").
+      placeholder: RN 0.83 / Expo SDK 55
+    validations:
+      required: true
+
+  - type: dropdown
+    id: new-arch
+    attributes:
+      label: New Architecture enabled?
+      options:
+        - "Yes"
+        - "No"
+        - "Not sure"
+    validations:
+      required: true
+
+  - type: input
+    id: preset-mode
+    attributes:
+      label: Preset / mode used
+      description: Which menu item or preset (Autoresearch first-load · listing · memory-leaks · bundle-size · re-renders · Perf Map 3D · Doctor · Configurations · by-hand script).
+      placeholder: listing
+    validations:
+      required: true
+
+  - type: textarea
+    id: doctor-output
+    attributes:
+      label: Doctor output
+      description: |
+        Paste the full output of (run in the plugin root, against your app's repo):
+        `node skills/metrognome/scripts/doctor.mjs`
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / errors
+      description: Any relevant terminal output, stack traces, or ledger excerpts (`.metrognome/ledger/`).
+      render: shell
+    validations:
+      required: false

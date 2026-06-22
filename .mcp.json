@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "metro-mcp": {
+      "command": "npx",
+      "args": ["-y", "metro-mcp@latest"]
+    }
+  }
+}

@@ -1,0 +1,121 @@
+# GitHub Pages live demo.
+#
+# Builds the public demo at https://uphold.github.io/metrognome/ :
+#   - perf-map.html — a REAL static scan of bluesky-social/social-app at a
+#     pinned SHA (a methodology example on a large real-world RN app — never
+#     the seeded fixture in examples/, which is circular by design)
+#   - report.html  — the live run report rendered from the bundled sample
+#     run-state (assets/run-state.sample.json)
+#   - index.html   — landing page (docs/pages/index.html) with attribution
+#
+# No generated HTML is committed to main — everything is built here and
+# deployed as a Pages artifact.
+
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  # bluesky-social/social-app main, resolved 2026-06-10. Bump deliberately.
+  BLUESKY_SHA: 17ff9af200ccb8816d9de45c6c73cdd2c30091de
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Fetch bluesky-social/social-app at pinned SHA
+        run: |
+          git init bsky
+          git -C bsky remote add origin https://github.com/bluesky-social/social-app
+          git -C bsky fetch --depth 1 origin "$BLUESKY_SHA"
+          git -C bsky checkout FETCH_HEAD
+
+      # Alias resolution is make-or-break for fan-in/centrality on bluesky
+      # (8862 edges with aliases vs 814 without). If the scan prints
+      # "aliases (none found)" the graph is meaningless — fail loudly.
+      - name: Scan bluesky (perf_scan)
+        run: |
+          set -o pipefail
+          node skills/metrognome/scripts/perf_scan.mjs bsky --out /tmp/graph.json | tee /tmp/scan.log
+          if grep -qE 'aliases +\(none found\)' /tmp/scan.log; then
+            echo "::error::perf_scan resolved no import aliases on bluesky — graph would be meaninglessly sparse"
+            exit 1
+          fi
+
+      - name: Build perf map
+        run: |
+          mkdir -p _site
+          node skills/metrognome/scripts/build_perf_map.mjs /tmp/graph.json --out _site/perf-map.html
+
+      - name: Build run report (sample run-state)
+        run: node skills/metrognome/scripts/build_run_report.mjs skills/metrognome/assets/run-state.sample.json --out _site/report.html
+
+      - name: Assemble landing page
+        run: |
+          cp docs/pages/index.html _site/
+          cp docs/logo.png _site/
+          # Pull the hero numbers from the real scan — the page never claims
+          # a figure the build didn't measure.
+          node -e "
+            const g = JSON.parse(require('fs').readFileSync('/tmp/graph.json', 'utf8'));
+            const fmt = (n) => n.toLocaleString('en-US');
+            const out = {
+              MODULES: fmt(g.nodes.length),
+              IMPORTS: fmt(g.links.length),
+              HOTSPOTS: fmt(g.nodes.filter((n) => n.isHotspot).length),
+              FINDINGS: fmt(g.nodes.reduce((s, n) => s + (n.findings?.length || 0), 0)),
+            };
+            require('fs').writeFileSync('/tmp/stats.env', Object.entries(out).map(([k, v]) => k + '=' + v).join('\n'));
+          "
+          . /tmp/stats.env
+          sed -i \
+            -e "s/__BLUESKY_SHA__/${BLUESKY_SHA}/g" \
+            -e "s/__BUILD_DATE__/$(date -u +%Y-%m-%d)/g" \
+            -e "s/__STAT_MODULES__/${MODULES}/g" \
+            -e "s/__STAT_IMPORTS__/${IMPORTS}/g" \
+            -e "s/__STAT_HOTSPOTS__/${HOTSPOTS}/g" \
+            -e "s/__STAT_FINDINGS__/${FINDINGS}/g" \
+            _site/index.html
+          # nothing un-templated left behind
+          if grep -q '__' _site/index.html; then
+            echo "::error::unsubstituted placeholder left in index.html" && exit 1
+          fi
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

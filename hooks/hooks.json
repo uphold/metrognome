@@ -1,0 +1,24 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -d \"${CLAUDE_PLUGIN_ROOT}/node_modules/@babel\" ] || npm --prefix \"${CLAUDE_PLUGIN_ROOT}\" install --omit=dev --quiet 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "input=$(cat); [ -d .metrognome ] && printf '%s' \"$input\" | grep -qiE 'performance|\\bjank|\\bfps\\b|frame.?rate|re-?render|memory leak|\\bRAM\\b|bundle size|cold start|\\bTTI\\b|\\bslow\\b|optimi[sz]e|profil(e|ing)|FlatList|SectionList|FlashList|dropped frame|hermes' && printf '[metrognome] This repo is metrognome-tracked. Before any RN perf work, consult .metrognome/perf-memory.md (known hotspots, proven fixes, reverted dead-ends) and record any newly-found gap or measured result there. Run /metrognome for the autonomous loop or the Perf Map 3D.' || true"
+          }
+        ]
+      }
+    ]
+  }
+}
