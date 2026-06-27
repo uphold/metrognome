@@ -55,7 +55,7 @@ Node ≥ 18 required (ESM throughout).
 commands/            /metrognome slash-command entrypoint (metrognome.md)
 hooks/               SessionStart (npm install) + UserPromptSubmit (perf-memory nudge)
 skills/metrognome/
-  SKILL.md           the orchestrator — menu (4 items), run-options, loop, gate, config, ledger, memory
+  SKILL.md           the orchestrator — menu (5 items), run-options, loop, gate, config, ledger, memory
   references/        readonly reference docs read by SKILL.md at runtime:
     presets.md       the 5 presets (first-load · listing · memory-leaks · bundle-size · re-renders)
     tools.md         ⚑ tool command surfaces (agent-device / agent-react-devtools / metro-mcp cheatsheet)

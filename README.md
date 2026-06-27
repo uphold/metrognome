@@ -69,6 +69,24 @@ See [`templates/ci/README.md`](templates/ci/README.md) for setup, cost, and gotc
 
 ---
 
+### Senior Engineer Audit — the reasoning brain
+
+> *"Performance is not a technical problem — it's entropy: every PR adds a little, and no single
+> developer holds the whole cathedral in their head."*
+> — Shu Ding
+
+Reads your whole codebase and finds the structural problems linters miss: a Context Provider
+recreating its value on every render, a navigator loading every screen's module at startup, state
+lifted high enough that a keystroke re-renders the whole tree. The kind of thing a senior engineer
+catches in code review, not in a flamegraph.
+
+You get a ranked list, each finding tied to a [Callstack best-practices guide](https://github.com/callstackincubator/agent-skills).
+Pick what to fix — metrognome measures each one and reverts anything that doesn't move the needle.
+
+Run it: `/metrognome` → **5. Senior Engineer Audit**.
+
+---
+
 ## What the skill offers
 
 **Modes** (`/metrognome` menu):
@@ -79,6 +97,7 @@ See [`templates/ci/README.md`](templates/ci/README.md) for setup, cost, and gotc
 | **Perf Map 3D** | Device-free static scan → interactive HTML force-graph → Top-3 hotspots. |
 | **Doctor** | Verifies/installs the toolchain, checks Metro + clean tree, bootstraps `.metrognome/` (including `config.json`). |
 | **Configurations** | View/edit `.metrognome/config.json` — commit mode, live report, N, k, budget. |
+| **Senior Engineer Audit** | Holistic reasoning scan — goes for the architectural roots (wrappers, navigators, shared base components), finds debt mechanical tools miss, presents ranked hypotheses, lets you pick findings to fix and prove through the gate. |
 
 **Presets** (Autoresearch):
 
