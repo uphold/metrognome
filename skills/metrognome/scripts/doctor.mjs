@@ -334,12 +334,14 @@ const DEFAULT_CONFIG = {
 const GITIGNORE_CONTENT = `# metrognome — generated run artifacts (not committed with the app)
 report.html
 run-state.json
+audit/
 `;
 
 function bootstrap() {
   const dir = path.join(repo, '.metrognome');
   fs.mkdirSync(path.join(dir, 'ledger'), { recursive: true });
   fs.mkdirSync(path.join(dir, 'archive'), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'audit'), { recursive: true });
 
   const mem = path.join(dir, 'perf-memory.md');
   if (!fs.existsSync(mem)) fs.writeFileSync(mem, PERF_MEMORY_HEADER(path.basename(repo)));
@@ -350,8 +352,8 @@ function bootstrap() {
   const gi = path.join(dir, '.gitignore');
   if (!fs.existsSync(gi)) fs.writeFileSync(gi, GITIGNORE_CONTENT);
 
-  console.log(`  bootstrapped ${path.relative(repo, dir) || '.metrognome'}/ (perf-memory.md, config.json, ledger/, archive/)`);
-  console.log(`  .metrognome/.gitignore created — report.html and run-state.json are gitignored`);
+  console.log(`  bootstrapped ${path.relative(repo, dir) || '.metrognome'}/ (perf-memory.md, config.json, ledger/, archive/, audit/)`);
+  console.log(`  .metrognome/.gitignore created — report.html, run-state.json, and audit/ are gitignored`);
 }
 
 // ── Self-test (CI contract — short-circuits before main() I/O) ────────────────
@@ -486,7 +488,8 @@ function main() {
   console.log(`  ${ad ? ok(true) : warn} agent-device ${ad ? '' : '— install: npm i -g agent-device (or use npx)'}`);
   console.log(`  ${ard ? ok(true) : warn} agent-react-devtools ${ard ? '' : '— install: npm i -g agent-react-devtools (or use npx)'}`);
   console.log(`  ${warn} metro-mcp — bundled via this plugin's .mcp.json (npx -y metro-mcp@latest); needs a LIVE Metro session to return data`);
-  console.log(`  ${warn} react-native-best-practices — install the Callstack agent-skill from callstackincubator/agent-skills`);
+  const rnbpInstalled = sh(`find "${os.homedir()}/.claude/plugins" -path "*/react-native-best-practices*" -name "*.md" -maxdepth 6 2>/dev/null | head -1`);
+  console.log(`  ${rnbpInstalled ? ok(true) : warn} react-native-best-practices${rnbpInstalled ? '' : ' — install: /plugin install react-native-best-practices@callstack-agent-skills'}`);
 
   // ── Git state ─────────────────────────────────────────────────────────────
   const gitInsideWorkTree = sh('git rev-parse --is-inside-work-tree') === 'true';
@@ -670,8 +673,21 @@ function main() {
     } else {
       console.log(`  ${ok(true)} .metrognome/config.json present`);
     }
+    const auditDir = path.join(repo, '.metrognome', 'audit');
+    if (!fs.existsSync(auditDir)) {
+      fs.mkdirSync(auditDir, { recursive: true });
+      console.log(`  ${ok(true)} .metrognome/audit/ created`);
+    }
+    // ensure audit/ is ignored even in repos bootstrapped before this existed
+    const gi = path.join(repo, '.metrognome', '.gitignore');
+    if (fs.existsSync(gi)) {
+      const cur = fs.readFileSync(gi, 'utf8');
+      if (!/^audit\/$/m.test(cur)) fs.appendFileSync(gi, cur.endsWith('\n') ? 'audit/\n' : '\naudit/\n');
+    } else {
+      fs.writeFileSync(gi, GITIGNORE_CONTENT);
+    }
   } else if (doInit) { bootstrap(); }
-  else console.log(`  ${warn} .metrognome/ not found — run: node doctor.mjs --init  (creates the per-repo memory, config.json, ledger)`);
+  else console.log(`  ${warn} .metrognome/ not found — run: node doctor.mjs --init  (creates the per-repo memory, config.json, ledger, audit/)`);
 
   // ── --launch-metro + poll-until-ready ─────────────────────────────────────
   if (doLaunchMetro) {

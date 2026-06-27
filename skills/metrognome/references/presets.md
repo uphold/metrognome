@@ -64,3 +64,23 @@ Each detector carries its preset, so a Top-3 line maps directly:
 | `effectNoCleanup` | `memory-leaks` |
 | `barrelImport` | `bundle-size` |
 | `heavyEntryImport`, `imageNoDims` | `first-load` |
+
+
+---
+
+## Senior Engineer Audit — preset mapping
+
+Architectural findings from the Senior Engineer Audit (mode 5) map to gate presets per
+`references/senior-audit.md`. Two categories of findings:
+
+**Gate-provable** (enter the measure→gate loop when chosen):
+- State placement / context shape / render cascades / referential instability / components
+  inside components / over-memoization → **`re-renders`** preset
+- Loading strategy (under-split) → **`first-load`** or **`bundle-size`** preset
+- Native animation / scroll jank → **`listing`** preset
+
+**Advisory — not currently auto-provable** (applied and flagged for eyes-on):
+- Request/effect waterfalls (no waterfall-timing gate)
+- Main-thread blocking / INP (no INP gate)
+- TurboModule migration (architecture change, not single-gate provable)
+

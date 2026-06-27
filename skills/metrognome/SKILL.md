@@ -33,6 +33,7 @@ Bare invocation → present the **top menu**:
 2. **Perf Map 3D** — static repo scan → interactive 3D map → Top-3 fixes ready to paste into Autoresearch.
 3. **Doctor** — verify/install tools, establish a live app session, scope git to its own changes, bootstrap `.metrognome/`.
 4. **Configurations** — view/edit `.metrognome/config.json` (commit mode, live report, N, k, budget).
+5. **Senior Engineer Audit** — holistic senior-level scan that goes for the root (wrappers, navigators, shared base components), finds the architectural debt mechanical tools miss, then lets you pick findings for metrognome to fix and prove through the gate — grounded in Callstack guides.
 
 Choosing **Autoresearch** → present the five presets:
 `first-load` · `listing` · `memory-leaks` · `bundle-size` · `re-renders`.
@@ -126,12 +127,26 @@ Then: open `perf-map.html` (`--open` does it; otherwise `open perf-map.html`). N
 
 The scoring, the ten detectors, and the **signal-vs-noise gating** (why most nodes stay grey) are in **`references/perf-map.md`**. Tuning constants live in `scripts/perf_scan.mjs`'s `CONFIG` block. If a scan lights up too much, raise the gate there.
 
+## Senior Engineer Audit (menu item 5)
+
+A holistic, standalone scan — **no live device or session needed for the scan itself**. The audit reasons like a staff RN performance engineer to find the architectural debt that mechanical detectors miss. Fix handoff reuses the existing measure→gate loop.
+
+**Core invariants:**
+- **Hypotheses, never verdicts.** Every finding carries `file:line`, blast radius, expected cost, Callstack guide, and the gate command. Nothing enters `perf-memory.md` as proven until the gate runs.
+- **Root-cause, not surface area.** Rank by blast radius (fan-in × architectural role). One root fix beats fifty leaf fixes.
+- **It fixes — it doesn't just file.** The audit ends in an AskUserQuestion menu; the user picks which findings metrognome should fix and prove through the gate.
+
+**Protocol:** read `references/senior-audit.md` before running (7-step: ground → substrate → reason → gate → emit → choose → fix & prove).
+
+Full protocol + blast-radius formula + report schema: **`references/senior-audit.md`**.
+Reasoning corpus (10 anti-pattern entries): **`references/architectural-perf-catalog.md`**.
+
 ## Doctor (auto-setup — zero homework)
 
 Doctor detects what needs fixing; the agent **performs all setup automatically** and presents **one consolidated prompt** (see below).
 
 **What Doctor detects:**
-- **Tools present?** `metro-mcp` is bundled (this plugin's `.mcp.json`). CLIs are `npx`-invocable; install globally with `npm i -g agent-device agent-react-devtools` for speed. Callstack knowledge base: install `react-native-best-practices` agent-skill from `callstackincubator/agent-skills`.
+- **Tools present?** `metro-mcp` is bundled (this plugin's `.mcp.json`). CLIs are `npx`-invocable; install globally with `npm i -g agent-device agent-react-devtools` for speed. Callstack knowledge base: install `react-native-best-practices` agent-skill from `callstackincubator/agent-skills`. Doctor checks if it is present.
 - **Live app session** — probes Metro (`localhost:${port}/json/list`) and the agent-react-devtools daemon (`agent-react-devtools status`); see sub-protocol below. **RN auto-connects on port 8097 — no app code change needed. Never add `import 'agent-react-devtools/connect'`: it is web-only and crashes RN New Arch** (see `references/tools.md`).
 - **New Arch** — detected from `app.json`/`app.config.*` `newArchEnabled` or RN ≥ 0.76 (ships New Arch by default). Sets metro-mcp `newArchitecture: true`.
 - **Pre-existing dirty files** — listed informational; left untouched.
@@ -243,6 +258,8 @@ If `openReport` is `true`, open `report.html` once at run start (auto-refreshes 
 - `references/measurement.md` — N-run protocol, gate math, why single samples lie.
 - `references/perf-map.md` — detectors, scoring, signal-vs-noise gating, Top-3 format.
 - `references/memory.md` — Memory entry format, read/append/compaction policy.
+- `references/senior-audit.md` — **Senior Engineer Audit** mode protocol: blast-radius ranking, reasoning steps, report schema, fix & prove loop. Read before running mode 5.
+- `references/architectural-perf-catalog.md` — 10-entry corpus + diagnostic thresholds; reasoning substrate for mode 5.
 - `.metrognome/config.json` — per-repo settings. Edited via **Configurations** menu.
 - `assets/report.template.html` + `scripts/build_run_report.mjs` — live progress dashboard (when `liveReport` is on).
 - `.metrognome/run-state.json` — written after each iteration (gitignored); drives the live report.
