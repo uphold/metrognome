@@ -9,127 +9,19 @@
 
 > **The autonomous performance engineer for React Native.** `/metrognome`: one command turns scattered RN performance tooling into a single, scientific loop — **propose → measure → keep/revert** — that ships gains it can prove.
 
-For any React Native developer chasing TTI, memory leaks, jank, bundle size, or re-renders: one `/metrognome` call researches, optimizes, and verifies autonomously — and every gain it reports is one it measured.
-One input, zero human interaction, flabbergasting performance improvements.
-
 Works with **Claude Code, OpenAI Codex CLI, Cursor, Gemini CLI, and GitHub Copilot CLI.**
 
-Inspired by OpenAI co-founder Andrej Karpathy's `/autoresearch` [skill](https://github.com/karpathy/autoresearch). Fully adapted to React Native.
+Inspired by Andrej Karpathy's `/autoresearch`. Fully adapted to React Native.
 
-## What `/metrognome` solves
+---
 
-React Native performance tooling is powerful but scattered — each tool knows one thing, nothing shares context between sessions, and there's no gate between "this might help" and "this actually helped." metrognome routes each measurement to the right tool and runs a loop with a real gate: one fix at a time, measured N times, kept only if the gain clears the noise — else reverted.
+## What it solves
+
+React Native performance tooling is powerful but scattered — each tool knows one thing, nothing shares context between sessions, and there's no gate between "this might help" and "this actually helped." metrognome routes each measurement to the right tool and runs a loop with a real gate: one fix at a time, measured N times, kept only if the gain is clearly bigger than the run-to-run wobble — otherwise reverted automatically.
 
 ![metrognome 3D Perf Map — white canvas, green chrome, node size = perf debt, color = severity.](docs/perf-map.png)
 
 ▶ [**Explore the live 3D map**](https://uphold.github.io/metrognome/perf-map.html) — a real scan of bluesky's [social-app](https://github.com/bluesky-social/social-app) — and the [live run report](https://uphold.github.io/metrognome/report.html).
-
----
-
-## Architecture
-
-metrognome routes each measurement to the right tool, then owns the loop, the gate, the ledger, the memory, and the map:
-
-![metrognome orchestration — the conductor, metro-mcp, and three Callstack tools](docs/diagrams/orchestration.png)
-
-agent-device, agent-react-devtools, and react-native-best-practices are independent open-source projects by **Callstack**; metro-mcp is an independent open-source project. metrognome does not bundle or modify them, it conducts them. See [Attribution](#attribution).
-
----
-
-## What `/metrognome` does
-
-Run `/metrognome` for a menu (or pass args / plain English to skip it):
-
-1. **Autoresearch** — pick a preset, run the autonomous loop:
-   `first-load` (TTI) · `listing` (FPS/jank) · `memory-leaks` (RAM) · `bundle-size` · `re-renders`.
-   Each iteration applies **one atomic fix**, re-measures with an N-run protocol, and keeps it **only if the gain beats the measurement noise** — otherwise it auto-reverts. Kept changes are metric-gated; the final commit shape is configurable (per-iteration · one commit · leave staged).
-
-2. **Perf Map 3D** — a static, device-free scan of the repo → an interactive 3D force-graph (open it in any browser, fully offline). Node **size = perf debt**, **color = severity**. Click a node for the flaw, `file:line`, and the matching Callstack guide. Emits a **Top-3** you paste straight back into Autoresearch.
-
-3. **Doctor** — verify/install the toolchain, check a live Metro session + a clean git tree, and bootstrap the repo's `.metrognome/` memory.
-
-```bash
-# Perf Map, by hand:
-node skills/metrognome/scripts/perf_scan.mjs <your-rn-app> --out graph.json
-node skills/metrognome/scripts/build_perf_map.mjs graph.json --out perf-map.html --open
-```
-
-### CI Autopilot (autonomous, weekly)
-
-metrognome also runs as a **weekly CI agent** — no human in the loop. A GitHub Actions
-workflow scans the repo, picks the top debt findings, autoresearches fixes, and opens a
-PR with the measured gains and *why* each fix was chosen.
-
-Two templates in [`templates/ci/`](templates/ci/):
-- **Device-free** (recommended): measures `bundle-size`, defers device-only findings.
-  Runs on any `ubuntu-latest` runner, always reliable.
-- **Device**: boots an Android emulator; all 5 presets measurable. Heavier, opt-in.
-
-See [`templates/ci/README.md`](templates/ci/README.md) for setup, cost, and gotchas.
-
----
-
-### Senior Engineer Audit — the reasoning brain
-
-> *"Performance is not a technical problem — it's entropy: every PR adds a little, and no single
-> developer holds the whole cathedral in their head."*
-> — Shu Ding
-
-Reads your whole codebase and finds the structural problems linters miss: a Context Provider
-recreating its value on every render, a navigator loading every screen's module at startup, state
-lifted high enough that a keystroke re-renders the whole tree. The kind of thing a senior engineer
-catches in code review, not in a flamegraph.
-
-You get a ranked list, each finding tied to a [Callstack best-practices guide](https://github.com/callstackincubator/agent-skills).
-Pick what to fix — metrognome measures each one and reverts anything that doesn't move the needle.
-
-Run it: `/metrognome` → **5. Senior Engineer Audit**.
-
----
-
-## What the skill offers
-
-**Modes** (`/metrognome` menu):
-
-| Mode | What it does |
-|---|---|
-| **Autoresearch** | Pick a preset; asks commit mode + live report (opt-in); runs the autonomous measure→fix→keep/revert loop. |
-| **Perf Map 3D** | Device-free static scan → interactive HTML force-graph → Top-3 hotspots. |
-| **Doctor** | Verifies/installs the toolchain, checks Metro + clean tree, bootstraps `.metrognome/` (including `config.json`). |
-| **Configurations** | View/edit `.metrognome/config.json` — commit mode, live report, N, k, budget. |
-| **Senior Engineer Audit** | Holistic reasoning scan — goes for the architectural roots (wrappers, navigators, shared base components), finds debt mechanical tools miss, presents ranked hypotheses, lets you pick findings to fix and prove through the gate. |
-
-**Presets** (Autoresearch):
-
-| Preset | Target metric |
-|---|---|
-| `first-load` | TTI — cold-start time to interactive |
-| `listing` | FPS / jank — dropped frames in FlatList/SectionList/FlashList |
-| `memory-leaks` | RAM — JS heap growth across open↔close cycles |
-| `bundle-size` | Bundle bytes — JS output size |
-| `re-renders` | Re-render count — wasted component commits |
-
-**Scripts / CLIs** (device-free unless noted):
-
-| Script | npm alias | What it does |
-|---|---|---|
-| `perf_scan.mjs` | `npm run scan` | Scans an RN repo, emits `graph.json` of perf hotspots |
-| `build_perf_map.mjs` | `npm run map` | Renders `graph.json` → standalone HTML 3D force-graph |
-| `build_run_report.mjs` | `npm run report` | Renders `run-state.json` → live HTML progress dashboard |
-| `stats.mjs` | `npm run stats:test` | Statistical gate (mean ± stddev, keep/revert decision) — self-testable |
-| `build_playbook.mjs` | `npm run playbook` | Distils ledger runs into `playbook.md` + `playbook.json` (proven wins / dead ends) |
-| `doctor.mjs` | `npm run doctor:test` | Toolchain check, Metro + git preflight, `.metrognome/` bootstrap + `config.json` — self-testable |
-| `heap_sample.mjs` | — | JS-heap leak sampling across open↔close cycles — needs a live app |
-
-Installed-plugin path: `${CLAUDE_PLUGIN_ROOT}/skills/metrognome/scripts/<script>`.
-
----
-
-### Signal, not noise
-
-![Signal not noise — four-layer funnel from all findings to real hotspots](docs/diagrams/signal-vs-noise.png)
-
-Static RN heuristics fire constantly in healthy code. The Perf Map's scoring is designed to surface the structural problems that actually matter — not every inline prop and missing `memo`. How it stays selective: severity weights, diminishing returns, structural-only centrality, and a combined debt+severity gate. Details and tuning constants: `skills/metrognome/references/perf-map.md`.
 
 ---
 
@@ -140,13 +32,13 @@ Static RN heuristics fire constantly in healthy code. The Perf Map's scoring is 
 /plugin install metrognome
 ```
 
-This registers the `/metrognome` command, the orchestrator skill, the bundled `metro-mcp` MCP server, and the perf-memory hook. Then run **Doctor** once in your RN app to install the CLI tools and bootstrap `.metrognome/`.
+**Prerequisites:** Node ≥ 18 · React Native / Expo app on Metro + Hermes · clean git tree.
 
-**Scripts need `npm install`:** When used inside a Claude session the SessionStart hook installs dependencies automatically. For by-hand / CI use (e.g. `npm run scan`), run `npm install` in the plugin directory first.
+Then run **Doctor** once (`/metrognome` → **3. Doctor**) in your RN app to install the CLI tools and bootstrap `.metrognome/`.
 
-#### Other agents (Codex · Cursor · Gemini · Copilot)
+**Scripts need `npm install`:** The SessionStart hook does this automatically inside a Claude session. For by-hand or CI use, run `npm install` in the plugin directory first.
 
-Register the `metro-mcp` MCP server, drop the `metrognome` skill into your agent's skills directory, and run scripts with `npx metrognome@latest <scan|map|report|doctor|…>`. See [COMPATIBILITY.md](./COMPATIBILITY.md) for per-harness config snippets.
+For Codex · Cursor · Gemini · Copilot: see [COMPATIBILITY.md](./COMPATIBILITY.md).
 
 ---
 
@@ -167,36 +59,98 @@ npm run map  -- graph.json --out perf-map.html --open
 
 ### Run the loop
 
-Paste a Top-3 command (or pick **Autoresearch** → preset from the menu) — metrognome measures, applies one fix, keeps it only if the gain beats the noise, else auto-reverts. *Needs the live toolchain + Metro + a clean tree — run Doctor first* (see [Requirements & constraints](#requirements--constraints)).
+> *Start it before bed. Wake up to a stack of metric-gated commits.*
+
+Pick **Autoresearch** → preset (or paste a Top-3 command). metrognome picks a hypothesis, applies it, measures N times on the actual device, keeps it if the gain clearly beats the run-to-run wobble, reverts if not — then picks the next hypothesis and does it again. One variable at a time, loop after loop, until the goal is reached or the budget runs out. Real research iterations, zero human interaction.
+
+Needs the live toolchain + Metro + a clean git tree — run Doctor first.
+
+---
+
+## Modes & presets
+
+**Menu** (`/metrognome`):
+
+| Mode | What it does |
+|---|---|
+| **Autoresearch** | Pick a preset; asks commit mode + live report (opt-in); runs the autonomous measure→fix→keep/revert loop. |
+| **Perf Map 3D** | Device-free static scan → interactive HTML force-graph → Top-3 hotspots. |
+| **Doctor** | Verifies/installs the toolchain, checks Metro + clean tree, bootstraps `.metrognome/` (including `config.json`). |
+| **Configurations** | View/edit `.metrognome/config.json` — commit mode, live report, N, k, budget. |
+| **Senior Engineer Audit** | Holistic reasoning scan — finds the structural debt linters miss (Context Provider recreating its value, navigator loading all screens at startup, state lifted high enough that a keystroke re-renders the whole tree). Ranked findings → pick what to fix → gate proves (or reverts) each one. |
+
+**Commit shape** (`commitMode` in `.metrognome/config.json`): `per-iteration` (default) · `one-commit` · `no-commit`.
+
+**Presets** (Autoresearch):
+
+| Preset | Target metric |
+|---|---|
+| `first-load` | TTI — cold-start time to interactive |
+| `listing` | FPS / jank — dropped frames in FlatList/SectionList/FlashList |
+| `memory-leaks` | RAM — JS heap growth across open↔close cycles |
+| `bundle-size` | Bundle bytes — JS output size |
+| `re-renders` | Re-render count — wasted component commits |
+
+**Scripts / CLIs** (device-free unless noted):
+
+| Script | npm alias | What it does |
+|---|---|---|
+| `perf_scan.mjs` | `npm run scan` | Scans an RN repo, emits `graph.json` of perf hotspots |
+| `build_perf_map.mjs` | `npm run map` | Renders `graph.json` → standalone HTML 3D force-graph |
+| `build_run_report.mjs` | `npm run report` | Renders `run-state.json` → live HTML progress dashboard |
+| `stats.mjs` | `npm run stats:test` | Statistical gate (keep/revert decision) — self-testable |
+| `build_playbook.mjs` | `npm run playbook` | Distils ledger runs into `playbook.md` + `playbook.json` (proven wins / dead ends) |
+| `doctor.mjs` | `npm run doctor:test` | Toolchain check, Metro + git preflight, `.metrognome/` bootstrap + `config.json` — self-testable |
+| `heap_sample.mjs` | — | JS-heap leak sampling across open↔close cycles — needs a live app |
+
+Installed-plugin path: `${CLAUDE_PLUGIN_ROOT}/skills/metrognome/scripts/<script>`.
+
+---
+
+## How it works
+
+![metrognome orchestration — the conductor, metro-mcp, and three Callstack tools](docs/diagrams/orchestration.png)
+
+metrognome routes each measurement to the right tool, then owns the loop, the gate, the ledger, the memory, and the map. agent-device, agent-react-devtools, and react-native-best-practices are independent open-source projects by **Callstack**; metro-mcp is an independent open-source project. metrognome conducts them — it does not bundle or modify them. See [Attribution](#attribution).
+
+### How the loop stays honest
+
+![The metrognome optimization loop — propose → measure → gate → keep/revert](docs/diagrams/loop.png)
+
+Each metric is measured N times (default 5, first run discarded). A fix is kept **only if the gain is clearly bigger than the run-to-run wobble** — otherwise it's reverted automatically. Per-iteration commits let `git restore .` revert anything instantly. The final commit shape is configurable. The Experiment Ledger (`.metrognome/ledger/`) records every run; Performance Memory (`.metrognome/perf-memory.md`) distills each into one durable line, committed with the app so the whole team inherits the knowledge. Exact formula: [`skills/metrognome/references/measurement.md`](skills/metrognome/references/measurement.md).
+
+![The gate — baseline vs candidate, KEEP or REVERT](docs/diagrams/gate.png)
+
+### Signal, not noise
+
+![Signal not noise — four-layer funnel from all findings to real hotspots](docs/diagrams/signal-vs-noise.png)
+
+Static RN heuristics fire constantly in healthy code. The Perf Map's scoring surfaces the structural problems that actually matter — not every inline prop and missing `memo`. How it stays selective: severity weights, diminishing returns, structural-only centrality, and a combined debt+severity gate. Scoring details and tuning constants: [`skills/metrognome/references/perf-map.md`](skills/metrognome/references/perf-map.md).
+
+---
+
+## CI Autopilot
+
+metrognome also runs as a **weekly CI agent** — no human in the loop. A GitHub Actions workflow scans the repo, picks the top debt findings, autoresearches fixes, and opens a PR with the measured gains and *why* each fix was chosen.
+
+Two templates in [`templates/ci/`](templates/ci/):
+- **Device-free** (recommended): measures `bundle-size`, defers device-only findings. Runs on any `ubuntu-latest` runner, always reliable.
+- **Device**: boots an Android emulator; all 5 presets measurable. Heavier, opt-in.
+
+See [`templates/ci/README.md`](templates/ci/README.md) for setup, cost, and gotchas.
 
 ---
 
 ## Requirements & constraints
 
-- **Node ≥ 18**; a React Native / Expo app on **Metro + Hermes**.
-- **`npm install` in plugin root** — required before running scripts by hand or in CI. Inside a Claude session the SessionStart hook does this automatically.
-- **Perf Map + stats need no device.** The live loop needs a simulator/emulator/device + a running Metro session.
-- **Live-loop toolchain** (installed via Doctor): `agent-device`, `agent-react-devtools` (CLIs), `metro-mcp` (bundled MCP), and the `react-native-best-practices` Callstack agent-skill.
-- **Clean git tree required for Autoresearch** — git is the experiment log; auto-revert needs a clean baseline. Doctor refuses to run dirty. The final commit shape is configurable via `.metrognome/config.json` (`commitMode`: `per-iteration` · `one-commit` · `no-commit`).
-- **Device loop is local.** The full loop (all presets) needs live Metro + a device — device-measured presets (`listing`, `re-renders`, `memory-leaks`, `first-load`) cannot run as a cloud cron without an emulator. The **device-free autopilot** (`bundle-size` preset) *does* run headless — see [`templates/ci/`](templates/ci/).
-- **iOS Simulator blind spot:** displayed-frame **FPS** is unavailable (Apple constraint — Simulator renders on the host GPU). Every other signal (JS heap, re-renders, longtask jank, TTI, CPU/RAM) works on Simulator. For FPS: use **Flashlight** (Android) or **Instruments/XCTest** (real iOS device).
-- **RN < 0.85: one CDP connection.** Close all RN DevTools / Fusebox windows before metro-mcp runtime calls.
-- **Expo / New Arch:** if metro-mcp runtime calls time out, set `newArchitecture: true`; `listing`/`re-renders` degrade to the CDP-free path (metro-mcp unverified offline).
+- **Node ≥ 18**; React Native / Expo app on Metro + Hermes.
+- **Clean git tree required** — git is the experiment log; auto-revert needs a clean baseline. Doctor refuses to run dirty.
+- **Perf Map + stats are device-free.** The live loop needs a simulator/emulator/device + a running Metro session.
+- **`bundle-size` runs headless** (CI-friendly). `listing`, `re-renders`, `memory-leaks`, `first-load` need a live device or simulator.
+- **Live-loop toolchain** (installed via Doctor): `agent-device`, `agent-react-devtools`, `metro-mcp` (bundled), `react-native-best-practices`.
 - **Discipline:** one variable per iteration; never record an unmeasured fix.
 
----
-
-## How the loop stays honest
-
-![The metrognome optimization loop — propose → measure → gate → keep/revert](docs/diagrams/loop.png)
-
-- **N-run variance control.** Every metric is measured N times (default 5, one warm-up discarded); decisions use mean ± stddev, not a single sample.
-- **The gate.** Keep a change iff `improvement > max(min_effect, k·pooled_stddev)` (k≈2). If it can't be distinguished from device jitter, it's reverted. (`scripts/stats.mjs`, self-testable.)
-
-![The gate — two distributions, noise band, KEEP vs REVERT decision](docs/diagrams/gate.png)
-
-- **Git as experiment log.** Clean tree required; per-iteration commits enable instant `git restore .` revert. The final commit shape is configurable: keep each commit, squash to one, or leave staged for review.
-- **Experiment Ledger** (`.metrognome/ledger/`) records every run verbosely; **Performance Memory** (`.metrognome/perf-memory.md`) distills each into one durable line, committed with the app so the whole team inherits the knowledge.
+For iOS Simulator FPS limits, RN < 0.85 CDP constraints, and Expo/New Arch timeout workarounds: see [COMPATIBILITY.md](./COMPATIBILITY.md).
 
 ---
 

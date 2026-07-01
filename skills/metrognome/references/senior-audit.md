@@ -127,12 +127,15 @@ cannot confirm the fix automatically; the user must apply and judge manually.
 
 Write the full ranked hypothesis report to:
 ```
-<repo>/.metrognome/audit/<ISO-timestamp>.md
+<repo>/.metrognome/audit/<YYYY-MM-DDTHH-mm-ssZ>.md
 ```
 
+Before opening the menu, print a short plain-text summary in the chat itself (not just the file) — one
+line per finding: title, how many screens/components it affects, and expected cost. This is the user's
+only view of the findings unless they open the report by hand, so the summary must stand on its own.
 Then present the findings as an **AskUserQuestion** multi-select menu.
 
-**AskUserQuestion accepts at most 4 options.** Present the top 4 findings by blast radius as the choices; if more than 3 actionable findings exist, bundle the remainder as a 4th option ("Remaining findings — I'll review the full report"). Follow up with a second menu for the bundled remainder if the user selects it.
+**AskUserQuestion accepts at most 4 options, and "Skip all" must always be one of them — so at most 3 slots are available for findings.** If there are ≤3 findings, list them individually. If there are >3, list the top 2 by blast radius plus a 3rd bundled option ("Remaining findings — I'll review the full report"), then "Skip all" as the 4th. Follow up with a second menu for the bundled remainder if the user selects it.
 
 > "I found N architectural findings ranked by blast radius. Which of the top findings would you like me to
 > investigate and fix now? (I'll apply the fix and prove it through the gate for provable ones;

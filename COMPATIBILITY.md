@@ -117,3 +117,19 @@ First run downloads the package and its deps; subsequent runs use the npx cache.
 ## Claude Code users
 
 Nothing changes. `$CLAUDE_PLUGIN_ROOT` is set in every plugin session, so the skill resolves scripts from the bundled copy — offline, zero network latency, exactly as before.
+
+---
+
+## Device & runtime constraints
+
+### iOS Simulator FPS blind spot
+
+Displayed-frame **FPS** is unavailable on iOS Simulator (Apple constraint — Simulator renders on the host GPU, not the device GPU). Every other signal works on Simulator: JS heap, re-renders, longtask jank, TTI, CPU/RAM. For accurate FPS numbers, use **Flashlight** (Android) or **Instruments / XCTest** on a real iOS device.
+
+### RN < 0.85: one CDP connection
+
+metro-mcp connects via CDP. On RN < 0.85 only one CDP client can be connected at a time. **Close all RN DevTools / Fusebox windows** before running any metro-mcp runtime calls, or you'll get connection errors.
+
+### Expo / New Arch timeout workaround
+
+If metro-mcp runtime calls time out on an Expo app with the New Architecture enabled, set `newArchitecture: true` in your app config. The `listing` and `re-renders` presets degrade to the CDP-free path (metro-mcp runtime unverified offline) when this workaround is active.
