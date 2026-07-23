@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.2.6 — 2026-07-23
+
+### Added
+- **Screen tracking memory** — Doctor now bootstraps `.metrognome/screen-map.md`, a per-repo navigation brain documenting launch, auth, and route steps to each screen (committed with the app; secrets referenced by `$NAME`, never inlined), plus `.metrognome/secrets.local.json` (gitignored, seeded `{}`) to hold the actual values. New reference doc: `skills/metrognome/references/navigation.md`.
+
+---
+
 ## v0.2.5 — 2026-06-13
 
 ### Fixed

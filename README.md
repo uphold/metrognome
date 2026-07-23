@@ -163,7 +163,7 @@ commands/            /metrognome entrypoint
 hooks/               SessionStart (npm install) + UserPromptSubmit (perf-memory nudge)
 skills/metrognome/
   SKILL.md           the orchestrator (menu, routing, loop, gate, ledger, memory, config)
-  references/        presets · tools · measurement · perf-map · memory
+  references/        presets · tools · measurement · perf-map · memory · navigation
   scripts/           perf_scan · build_perf_map · build_run_report · stats · build_playbook · doctor · heap_sample
   assets/            vendored 3d-force-graph · HTML templates · ledger template · sample run-state
 docs/                banner.svg/png · perf-map.png · diagrams/ (loop · orchestration · gate · signal-vs-noise)
@@ -172,10 +172,12 @@ examples/            sample-rn-app fixture with seeded anti-patterns
 
 In the target RN repo, Doctor bootstraps:
 - `.metrognome/perf-memory.md` — cumulative performance brain (committed with the app)
+- `.metrognome/screen-map.md` — navigation brain: launch, auth, and route steps to each screen (committed with the app; secrets referenced by `$NAME`, never inlined)
+- `.metrognome/secrets.local.json` — `$NAME` → value map for screen-map auth steps (gitignored)
 - `.metrognome/config.json` — run settings: commit mode, live report, N, k, budget
 - `.metrognome/ledger/` — verbose per-run experiment logs
 - `.metrognome/archive/` — compacted old memory
-- `.metrognome/.gitignore` — excludes generated artifacts (`report.html`, `run-state.json`)
+- `.metrognome/.gitignore` — excludes generated artifacts (`report.html`, `run-state.json`, `secrets.local.json`)
 
 ---
 
