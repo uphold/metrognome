@@ -40,13 +40,18 @@ adb devices
 
 | Signal you need | Tool | Why |
 |---|---|---|
-| Drive the app (open, tap, type, scroll, gestures, wait, assert) | agent-device | the user-simulation layer; produces the workload you measure |
+| Drive the app (open, tap, type, scroll, gestures, wait, assert) | **agent-device** | the user-simulation layer; produces the workload you measure |
+| **Any visual/controlling action** — screenshot, tap, type, swipe, long-press, button press | **agent-device** | see *agent-device owns visual/controlling actions* below |
 | CPU/memory **device** samples, video, traces, crash context, `.ad` replay | agent-device | on-device evidence capture |
 | Per-component re-render causes, slow renders, commit timeline | agent-react-devtools | the only React-fiber-aware source |
-| Hermes CPU profile, heap sampling, network, console/exceptions, JS eval, navigation | metro-mcp | CDP into Metro/Hermes, no app code changes |
+| Hermes CPU profile, heap sampling, network, console/exceptions, JS eval, navigation state (read-only) | metro-mcp | CDP into Metro/Hermes, no app code changes |
 | Which fix to try | react-native-best-practices | the hypothesis catalog (mapped per preset in `presets.md`) |
 
 CPU appears in more than one tool by design. Prefer **metro-mcp** for Hermes-level JS CPU/heap and **agent-device** for OS-level CPU/memory while driving a real workload. For *component re-rendering*, only **agent-react-devtools** sees the fiber tree.
+
+### agent-device owns visual/controlling actions
+
+metro-mcp's bundled tool list includes device-control-shaped tools (`take_screenshot`, `tap_element`, `type_text`, `swipe`, `long_press`, `press_button`) purely as CDP-reachable conveniences — **that is not their intended routing.** Every screenshot, tap, type, swipe, long-press, or button press — in navigation (`references/navigation.md`), in a preset's drive step, or anywhere else — goes through **agent-device**. metro-mcp is for CDP-level *introspection* (console, network, profiler, heap, storage, redux, JS eval) — never for driving the UI or capturing evidence images. Reach for metro-mcp's `take_screenshot`/`tap_element`/etc. only if agent-device is confirmed unavailable for the current platform/session — treat that as a fallback, not a default.
 
 ---
 
@@ -59,7 +64,8 @@ agent-device apps --platform ios            # list installed/available apps
 agent-device open <App> --platform ios      # launch app, start a session
 agent-device snapshot -i                     # accessibility snapshot w/ interactive refs (@e3, …)
 agent-device tap @e3                          # tap a ref (also: selectors, coords)
-agent-device fill @e3 "test@example.com"     # type into a field
+agent-device tap @e3                          # focus the field first — no direct "fill"
+agent-device type "test@example.com"          # then type into the focused field
 agent-device scroll ...                       # scroll/swipe the target list (drives `listing`)
 agent-device screenshot ./artifacts/x.png    # capture evidence
 agent-device close                            # end the session
