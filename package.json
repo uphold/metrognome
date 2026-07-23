@@ -1,6 +1,6 @@
 {
   "name": "metrognome",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "type": "module",
   "description": "Autonomous, scientific React Native performance optimization — propose → measure → keep/revert loop, 3D Perf Map, and per-repo performance memory.",
   "author": {
