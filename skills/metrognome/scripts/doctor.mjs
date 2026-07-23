@@ -321,6 +321,31 @@ const PERF_MEMORY_HEADER = (name) => `# Performance Memory — ${name}
 <!-- entries below, newest first -->
 `;
 
+const SCREEN_MAP_HEADER = (name) => `# Screen Map — ${name}
+
+> metrognome's navigation brain: how to launch, authenticate, and reach each screen.
+> Secrets are referenced by $NAME from .metrognome/secrets.local.json (gitignored) — never inline them.
+> Identifiers are stable accessibility labels / testIDs / visible text, NOT ephemeral @e3 refs
+> (those are resolved live from an agent-device snapshot at run time). Commit this file with the app.
+
+## App
+bundleId: <fill in — e.g. com.example.staging>
+launch: agent-device open <bundleId> --relaunch
+
+## Auth
+env: <fill in — e.g. staging>
+steps:
+  - tap  "Email"                    <!-- agent-device needs a tap to focus before typing -->
+  - type $MG_EMAIL
+  - tap  "Password"
+  - type $MG_PW
+  - tap  "Sign in"
+lands: <fill in — e.g. Home>
+
+## Routes            <!-- screen · from <anchor>: <step> → <step> · verified <date> -->
+<!-- entries below, learned as metrognome navigates -->
+`;
+
 const DEFAULT_CONFIG = {
   commitMode: 'per-iteration', // "per-iteration" | "one-commit" | "no-commit"
   liveReport: false,           // write/refresh .metrognome/report.html during the run
@@ -335,7 +360,20 @@ const GITIGNORE_CONTENT = `# metrognome — generated run artifacts (not committ
 report.html
 run-state.json
 audit/
+secrets.local.json
 `;
+
+// Backfills missing lines into an existing .metrognome/.gitignore (repos bootstrapped before
+// audit/ or secrets.local.json existed); creates it fresh if missing entirely.
+function patchGitignore(giPath) {
+  if (!fs.existsSync(giPath)) {
+    fs.writeFileSync(giPath, GITIGNORE_CONTENT);
+    return;
+  }
+  let cur = fs.readFileSync(giPath, 'utf8');
+  if (!/^audit\/$/m.test(cur)) { fs.appendFileSync(giPath, cur.endsWith('\n') ? 'audit/\n' : '\naudit/\n'); cur += 'audit/\n'; }
+  if (!/^secrets\.local\.json$/m.test(cur)) fs.appendFileSync(giPath, cur.endsWith('\n') ? 'secrets.local.json\n' : '\nsecrets.local.json\n');
+}
 
 function bootstrap() {
   const dir = path.join(repo, '.metrognome');
@@ -346,14 +384,20 @@ function bootstrap() {
   const mem = path.join(dir, 'perf-memory.md');
   if (!fs.existsSync(mem)) fs.writeFileSync(mem, PERF_MEMORY_HEADER(path.basename(repo)));
 
+  const screenMap = path.join(dir, 'screen-map.md');
+  if (!fs.existsSync(screenMap)) fs.writeFileSync(screenMap, SCREEN_MAP_HEADER(path.basename(repo)));
+
   const cfg = path.join(dir, 'config.json');
   if (!fs.existsSync(cfg)) fs.writeFileSync(cfg, JSON.stringify(DEFAULT_CONFIG, null, 2) + '\n');
 
-  const gi = path.join(dir, '.gitignore');
-  if (!fs.existsSync(gi)) fs.writeFileSync(gi, GITIGNORE_CONTENT);
+  // gitignore before secrets.local.json — never briefly ungitignored on disk
+  patchGitignore(path.join(dir, '.gitignore'));
 
-  console.log(`  bootstrapped ${path.relative(repo, dir) || '.metrognome'}/ (perf-memory.md, config.json, ledger/, archive/, audit/)`);
-  console.log(`  .metrognome/.gitignore created — report.html, run-state.json, and audit/ are gitignored`);
+  const secrets = path.join(dir, 'secrets.local.json');
+  if (!fs.existsSync(secrets)) fs.writeFileSync(secrets, '{}\n');
+
+  console.log(`  bootstrapped ${path.relative(repo, dir) || '.metrognome'}/ (perf-memory.md, screen-map.md, config.json, ledger/, archive/, audit/)`);
+  console.log(`  .metrognome/.gitignore created — report.html, run-state.json, audit/, and secrets.local.json are gitignored`);
 }
 
 // ── Self-test (CI contract — short-circuits before main() I/O) ────────────────
@@ -460,6 +504,33 @@ function selfTest() {
     const empty = parseAdbDevices('List of devices attached\n');
     check('adb no devices → empty', empty.length, 0);
     check('adb null → empty', parseAdbDevices(null).length, 0);
+  }
+
+  // GITIGNORE_CONTENT — secrets.local.json must never be committed
+  check('gitignore includes secrets.local.json', GITIGNORE_CONTENT.includes('secrets.local.json'), true);
+
+  // patchGitignore — against a stale pre-existing .gitignore
+  {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mg-doctor-test-'));
+    const giPath = path.join(tmpDir, '.gitignore');
+    fs.writeFileSync(giPath, 'report.html\nrun-state.json\n');
+    patchGitignore(giPath);
+    const patched = fs.readFileSync(giPath, 'utf8');
+    check('patchGitignore appends audit/', /^audit\/$/m.test(patched), true);
+    check('patchGitignore appends secrets.local.json', /^secrets\.local\.json$/m.test(patched), true);
+    check('patchGitignore preserves existing lines', patched.includes('report.html'), true);
+
+    // idempotent — no duplicate lines on a second run
+    patchGitignore(giPath);
+    const rePatched = fs.readFileSync(giPath, 'utf8');
+    check('patchGitignore is idempotent', (rePatched.match(/^secrets\.local\.json$/gm) || []).length, 1);
+
+    // missing file → created from scratch
+    const freshGi = path.join(tmpDir, 'fresh.gitignore');
+    patchGitignore(freshGi);
+    check('patchGitignore creates missing file', fs.readFileSync(freshGi, 'utf8'), GITIGNORE_CONTENT);
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 
   console.log(`\n  ${pass} passed, ${fail} failed`);
@@ -678,16 +749,21 @@ function main() {
       fs.mkdirSync(auditDir, { recursive: true });
       console.log(`  ${ok(true)} .metrognome/audit/ created`);
     }
-    // ensure audit/ is ignored even in repos bootstrapped before this existed
-    const gi = path.join(repo, '.metrognome', '.gitignore');
-    if (fs.existsSync(gi)) {
-      const cur = fs.readFileSync(gi, 'utf8');
-      if (!/^audit\/$/m.test(cur)) fs.appendFileSync(gi, cur.endsWith('\n') ? 'audit/\n' : '\naudit/\n');
-    } else {
-      fs.writeFileSync(gi, GITIGNORE_CONTENT);
+    // backfill screen-map.md + secrets.local.json for repos bootstrapped before these existed
+    const screenMap = path.join(repo, '.metrognome', 'screen-map.md');
+    if (!fs.existsSync(screenMap)) {
+      fs.writeFileSync(screenMap, SCREEN_MAP_HEADER(path.basename(repo)));
+      console.log(`  ${ok(true)} .metrognome/screen-map.md created`);
+    }
+    // gitignore before secrets.local.json — never briefly ungitignored on disk
+    patchGitignore(path.join(repo, '.metrognome', '.gitignore'));
+    const secrets = path.join(repo, '.metrognome', 'secrets.local.json');
+    if (!fs.existsSync(secrets)) {
+      fs.writeFileSync(secrets, '{}\n');
+      console.log(`  ${ok(true)} .metrognome/secrets.local.json created`);
     }
   } else if (doInit) { bootstrap(); }
-  else console.log(`  ${warn} .metrognome/ not found — run: node doctor.mjs --init  (creates the per-repo memory, config.json, ledger, audit/)`);
+  else console.log(`  ${warn} .metrognome/ not found — run: node doctor.mjs --init  (creates the per-repo memory, screen-map.md, config.json, ledger, audit/)`);
 
   // ── --launch-metro + poll-until-ready ─────────────────────────────────────
   if (doLaunchMetro) {

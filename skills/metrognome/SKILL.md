@@ -19,7 +19,7 @@ This skill owns the menu, loop, gate, Ledger, Memory, and Perf Map. **Measuremen
 | **JS-heap leak sampling** (`memory-leaks`) — cross-platform incl. iOS Simulator | **`scripts/heap_sample.mjs`** | `node heap_sample.mjs --cycles N` → CSV → `stats.mjs --direction lower --unit bytes` |
 | Which fix to try (the hypothesis) | **react-native-best-practices** (Callstack agent-skill) | look up the guide mapped to the preset |
 
-Profiling overlaps (CPU from both metro-mcp and agent-device); pick the best source. `references/tools.md` has the current command surface — **read it before invoking any tool** and update it when a tool's flags change.
+Profiling overlaps (CPU from both metro-mcp and agent-device); pick the best source. **Visual/controlling actions — screenshot, tap, type, swipe, long-press, button press — always route through agent-device**, even though metro-mcp exposes overlapping tools (`take_screenshot`, `tap_element`, `type_text`, …); those are CDP conveniences, not the intended path (see `references/tools.md`). `references/tools.md` has the current command surface — **read it before invoking any tool** and update it when a tool's flags change.
 
 **Platform note — one blind spot:** **Displayed-frame FPS** is unavailable on the iOS Simulator (Apple platform constraint — no frame-timing exposed). Every other signal (JS heap, re-renders, longtask jank, startup, CPU/memory) is fully measurable on Simulator. For FPS: use **Flashlight** on Android or **Instruments/XCTest** on a real iOS device.
 
@@ -61,7 +61,7 @@ Run this for an Autoresearch preset. A port of the web playbook's Measure→Diag
    - **Bootstrap:** ensure `.metrognome/` exists (auto-create; never prompt).
    - **Scoped-tracking init:** `preExistingDirty` = paths from `git status --porcelain` before any change. Never staged or reverted by metrognome.
    - **Consolidated run-start prompt** (see below) — one AskUserQuestion with three groups: setup items, commit mode, live report. Wait for response, then proceed.
-   - **Session bring-up (always, silently, before baseline):** verify git state via `parseGitState` (see *Git must be usable* — if not `usable`, print remediation and wait). Then: start Metro if needed; boot/attach simulator or device; **establish a live app session** (sub-protocol below); `agent-react-devtools start` + `wait --connected`; select the live Hermes target from `localhost:8081/json/list`; set `newArchitecture: true` if detected. Healthy session → proceed. Escalate only when blocked (see *When to ask*). **`bundle-size` is build-time — skip Metro/session bring-up.**
+   - **Session bring-up (always, silently, before baseline):** verify git state via `parseGitState` (see *Git must be usable* — if not `usable`, print remediation and wait). Then: start Metro if needed; boot/attach simulator or device; **establish a live app session** (sub-protocol below); `agent-react-devtools start` + `wait --connected`; select the live Hermes target from `localhost:8081/json/list`; set `newArchitecture: true` if detected. Healthy session → **read `.metrognome/screen-map.md`, run its `Auth` steps (resolving secrets from `secrets.local.json`), then navigate to the preset's target screen via the matching Route** — before Baseline. On a missing/stale route, escalate per `references/navigation.md`. Escalate only when blocked (see *When to ask*). **`bundle-size` is build-time — skip Metro/session bring-up and navigation.**
    - **Optional setup** (only when Doctor detected blockers): install missing CLIs or apply flagged setup actions (the Blockers group in the run-start prompt) — live-session bring-up is NOT conditional on the user's choice here.
    - **Setup commit** (if `commitMode != no-commit`): `git add <setup paths only — never preExistingDirty>` and commit as `chore(metrognome): setup workspace`. Record `baselineSha = git rev-parse HEAD` (after setup, so loop reverts never touch infra).
    - **Load memory and config:** read `.metrognome/perf-memory.md` for known hotspots; if `.metrognome/playbook.md` exists, read it for measured fix priors (proven wins + dead ends); load `.metrognome/config.json` (`commitMode`, `liveReport`, `runs`, `k`, `budget`).
@@ -150,7 +150,7 @@ Doctor detects what needs fixing; the agent **performs all setup automatically**
 - **Live app session** — probes Metro (`localhost:${port}/json/list`) and the agent-react-devtools daemon (`agent-react-devtools status`); see sub-protocol below. **RN auto-connects on port 8097 — no app code change needed. Never add `import 'agent-react-devtools/connect'`: it is web-only and crashes RN New Arch** (see `references/tools.md`).
 - **New Arch** — detected from `app.json`/`app.config.*` `newArchEnabled` or RN ≥ 0.76 (ships New Arch by default). Sets metro-mcp `newArchitecture: true`.
 - **Pre-existing dirty files** — listed informational; left untouched.
-- **Bootstrap `.metrognome/`** on first run: create `perf-memory.md`, `config.json` (defaults), `ledger/`, `archive/`, `.gitignore` (excludes `report.html`/`run-state.json`). Memory + config + ledger are committed with the app.
+- **Bootstrap `.metrognome/`** on first run: create `perf-memory.md`, `screen-map.md`, `config.json` (defaults), `ledger/`, `archive/`, `secrets.local.json` (`{}`), `.gitignore` (excludes `report.html`/`run-state.json`/`secrets.local.json`). Memory + screen-map + config + ledger are committed with the app; `secrets.local.json` never is.
 
 **Establish a live app session (run after git-state check, before baseline):**
 
@@ -168,6 +168,8 @@ Doctor detects what needs fixing; the agent **performs all setup automatically**
    > 3. (Physical Android) Run: `adb reverse tcp:8097 tcp:8097`
    >
    > Then re-check (`agent-react-devtools wait --connected`).
+
+**Once the session is healthy:** authenticate and navigate to the target screen via `.metrognome/screen-map.md` before Baseline — see **Navigation Memory** below and `references/navigation.md`.
 
 **Environment bring-up (agent does silently):**
 - Metro not running → `doctor.mjs --launch-metro` or start backgrounded (`npx expo start` / `npm start`).
@@ -209,6 +211,22 @@ metrognome builds a terse per-repo log of every perf gap it encounters — even 
 - **Compact** when it grows: merge duplicates, move resolved entries to `.metrognome/archive/`.
 
 Format and rules are in **`references/memory.md`**. The `UserPromptSubmit` hook reminds you; this skill does the work.
+
+## Navigation Memory
+
+metrognome also keeps a per-repo **navigation brain** — how to launch, authenticate, and reach each
+screen — so it can get itself to the target screen instead of assuming it's already there.
+
+- **Read** `.metrognome/screen-map.md` at session bring-up (after the live app session is healthy,
+  before Baseline): run `Auth`, resolving `$NAME` secrets from `.metrognome/secrets.local.json`
+  (gitignored), then navigate to the preset's target via the matching Route.
+- **On a dead-end** (missing or stale Route): try autonomously first (snapshot, likely control, tap,
+  confirm); if still stuck, ask the user for a text hint or a walkthrough, confirm via snapshot, and
+  record the verified Route.
+- **OTP** is just another referenced secret (`$MG_OTP`) — no TOTP generation; unset + a real dynamic
+  code needed → pause and ask.
+
+Format and rules are in **`references/navigation.md`**.
 
 ## Configurations (menu item 4)
 
@@ -258,6 +276,7 @@ If `openReport` is `true`, open `report.html` once at run start (auto-refreshes 
 - `references/measurement.md` — N-run protocol, gate math, why single samples lie.
 - `references/perf-map.md` — detectors, scoring, signal-vs-noise gating, Top-3 format.
 - `references/memory.md` — Memory entry format, read/append/compaction policy.
+- `references/navigation.md` — Screen Map format (App/Auth/Routes), secret resolution, OTP policy, dead-end escalation & learning.
 - `references/senior-audit.md` — **Senior Engineer Audit** mode protocol: blast-radius ranking, reasoning steps, report schema, fix & prove loop. Read before running mode 5.
 - `references/architectural-perf-catalog.md` — 10-entry corpus + diagnostic thresholds; reasoning substrate for mode 5.
 - `.metrognome/config.json` — per-repo settings. Edited via **Configurations** menu.
