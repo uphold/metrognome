@@ -87,6 +87,7 @@ Persistent background daemon that survives across CLI calls; token-efficient out
 agent-react-devtools start [--port 8097]     # start daemon (then run/refresh the app)
 agent-react-devtools status                   # "Apps: 1 connected" when wired up
 agent-react-devtools wait --connected         # block until an app connects
+agent-react-devtools stop                      # stop daemon — metrognome runs this at session teardown, never leave it attached past the run
 
 agent-react-devtools get tree [@c1] [--depth N] [--all] [--max-lines N]
 agent-react-devtools get component <@c1>      # props, state, hooks

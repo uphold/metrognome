@@ -85,7 +85,8 @@ Run this for an Autoresearch preset. A port of the web playbook's Measure→Diag
    - `per-iteration` (default) — leave per-iteration commits as-is.
    - `one-commit` — `git reset --soft <baseline-sha>` then `git commit -m "perf(<preset>): <net-summary> (<n> iterations)"`.
    - `no-commit` — `git reset --soft <baseline-sha>`. Kept changes are **staged but uncommitted** for the user to review and commit.
-9. **Report.** Summarize the Ledger and commits. Distill each kept/reverted result into **one line** in `.metrognome/perf-memory.md`.
+9. **Session teardown (always, silently, even on early exit/escalation).** `agent-react-devtools stop` — it was started in step 1; left running it stays attached to the RN runtime (port 8097) past the run, which can affect the app outside of metrognome's own session. Never leave it running past the run. (metro-mcp's own process lifecycle is owned by the MCP client that launched it — not something this loop starts or stops.)
+10. **Report.** Summarize the Ledger and commits. Distill each kept/reverted result into **one line** in `.metrognome/perf-memory.md`.
 
 **Discipline rules:**
 - *One variable at a time.* Stacked fixes make the gate meaningless.
