@@ -42,11 +42,16 @@
     "playbook:test": "node skills/metrognome/scripts/build_playbook.mjs --self-test",
     "smoke": "node skills/metrognome/scripts/perf_scan.mjs examples/sample-rn-app --out /tmp/mg-graph.json --quiet && node skills/metrognome/scripts/build_perf_map.mjs /tmp/mg-graph.json --out /tmp/mg-map.html && node skills/metrognome/scripts/build_run_report.mjs skills/metrognome/assets/run-state.sample.json --out /tmp/mg-report.html",
     "prepublishOnly": "npm test",
+    "release": "release-it",
     "test": "npm run stats:test && npm run doctor:test && npm run playbook:test"
   },
   "dependencies": {
     "@babel/parser": "^7.29.7",
     "@babel/traverse": "^7.29.7",
     "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@uphold/github-changelog-generator": "3.4.0",
+    "release-it": "^18.1.2"
   }
 }

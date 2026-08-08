@@ -1,0 +1,55 @@
+# Release: Actions > Release > Run workflow, pick a version bump.
+#
+# Bumps package.json + .claude-plugin/plugin.json + .claude-plugin/marketplace.json
+# in lockstep (scripts/sync-plugin-version.mjs, via release-it's after:bump hook),
+# regenerates CHANGELOG.md from merged PRs (@uphold/github-changelog-generator),
+# commits "Release ${version}" to master, tags v${version}, and creates the GitHub
+# release. Does NOT run `npm publish` — the `metrognome` npm package is still on the
+# pre-move personal account, not Uphold; publishing stays a manual step for now.
+
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      VERSION_BUMP:
+        description: 'The version bump'
+        type: choice
+        options:
+          - major
+          - minor
+          - patch
+        default: patch
+        required: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: release
+    concurrency: 1
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # full history: release-it + changelog generator need tags/PRs
+
+      - name: Setup Node.js version
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure git
+        run: |
+          git config user.name "Uphold"
+          git config user.email "bot@uphold.com"
+          git config --global url.https://${{ secrets.RELEASE_GITHUB_TOKEN }}@github.com/.insteadOf https://github.com/
+
+      - name: Generate release
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_GITHUB_TOKEN }}
+        run: npm run release -- --increment "${{ github.event.inputs.VERSION_BUMP }}" -V
