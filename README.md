@@ -160,7 +160,7 @@ For iOS Simulator FPS limits, RN < 0.85 CDP constraints, and Expo/New Arch timeo
 .claude-plugin/      plugin.json + marketplace.json (self-installable)
 .mcp.json            bundles metro-mcp
 commands/            /metrognome entrypoint
-hooks/               SessionStart (npm install) + UserPromptSubmit (perf-memory nudge)
+hooks/               SessionStart (npm install + daily CLI auto-update) + UserPromptSubmit (perf-memory nudge)
 skills/metrognome/
   SKILL.md           the orchestrator (menu, routing, loop, gate, ledger, memory, config)
   references/        presets · tools · measurement · perf-map · memory · navigation

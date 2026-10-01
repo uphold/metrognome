@@ -57,21 +57,10 @@ metro-mcp's bundled tool list includes device-control-shaped tools (`take_screen
 
 ## agent-device (CLI)
 
-Drives iOS Simulator, Android Emulator, physical devices, tvOS, macOS, desktop. Read `agent-device help workflow` at the start of every session — it is the agent-facing source of truth.
+Drives iOS Simulator, Android Emulator, physical devices, tvOS, macOS, desktop. **Commands come from the tool, not this file:** read `agent-device help workflow` (version-matched operating guide) at the start of every session, and `agent-device <cmd> --help` before any flag you haven't seen this session. The `SessionStart` hook keeps it on `@latest`, so memorized flags go stale. Topic help: `agent-device help <dogfooding|debugging|replay|...>`.
 
-```bash
-agent-device apps --platform ios            # list installed/available apps
-agent-device open <App> --platform ios      # launch app, start a session
-agent-device snapshot -i                     # accessibility snapshot w/ interactive refs (@e3, …)
-agent-device tap @e3                          # tap a ref (also: selectors, coords)
-agent-device tap @e3                          # focus the field first — no direct "fill"
-agent-device type "test@example.com"          # then type into the focused field
-agent-device scroll ...                       # scroll/swipe the target list (drives `listing`)
-agent-device screenshot ./artifacts/x.png    # capture evidence
-agent-device close                            # end the session
-```
-
-Also exposes: gestures, `wait`/assert, video recording, logs, traces, network capture, **CPU/memory performance samples**, **React render profiles**, and `.ad` replay scripts (record once, replay deterministically). Topic help: `agent-device help <dogfooding|debugging|replay|...>`. Some iOS ops need `brew install idb-companion`.
+Gotchas the upstream guide doesn't cover:
+- **`close` quits the app** (not just the session) — metrognome never runs it at teardown; the session, runner, and daemon self-idle after 5 min.
 
 **metrognome uses it to:** produce the workload (open/scroll/cycle) and grab device-level CPU/mem timing for `first-load`, `listing`, `memory-leaks`.
 
@@ -83,27 +72,7 @@ Persistent background daemon that survives across CLI calls; token-efficient out
 
 **React Native needs no app code change.** `npx agent-react-devtools init --dry-run` reports "no code changes needed" — the app auto-connects on port **8097** via the `react-devtools-core` backend Metro bundles. The `./connect` export and `init` code-injection target **web React (Vite/browser)** and **crashed our Expo SDK 55 / New Arch test app** when added to an RN entry point. **Never add `import 'agent-react-devtools/connect'` to a React Native entry point.** "0 connected" means a **dead app session, not a missing import** — restart Metro and reopen the app.
 
-```bash
-agent-react-devtools start [--port 8097]     # start daemon (then run/refresh the app)
-agent-react-devtools status                   # "Apps: 1 connected" when wired up
-agent-react-devtools wait --connected         # block until an app connects
-agent-react-devtools stop                      # stop daemon — metrognome runs this at session teardown, never leave it attached past the run
-
-agent-react-devtools get tree [@c1] [--depth N] [--all] [--max-lines N]
-agent-react-devtools get component <@c1>      # props, state, hooks
-agent-react-devtools find <Name> [--exact]    # locate a component
-agent-react-devtools count                     # component counts by type
-agent-react-devtools errors                    # components with errors/warnings
-
-agent-react-devtools profile start [name]
-agent-react-devtools profile stop
-agent-react-devtools profile slow [--limit N]       # slowest components by avg duration
-agent-react-devtools profile rerenders [--limit N]  # most re-rendered components  <-- `re-renders` preset
-agent-react-devtools profile timeline [--limit N]   # commit timeline
-agent-react-devtools profile report <@c1>           # render report for a component
-agent-react-devtools profile export <file>          # React DevTools Profiler JSON
-agent-react-devtools profile diff <before.json> <after.json> [--threshold N]  # before/after compare
-```
+**Commands come from the tool, not this file:** run `agent-react-devtools --help` at the start of every session (kept on `@latest` by the `SessionStart` hook). Lifecycle: `start` → `wait --connected` at bring-up; `stop` at teardown — never leave it attached past the run.
 
 **metrognome uses it to:** find the dominant re-render cause (`profile rerenders`/`slow`) for the `re-renders` and `listing` presets, and `profile diff` to verify a fix at the component level.
 
@@ -151,7 +120,7 @@ Not all limitations are tool defects — some are hard platform boundaries; use 
 | **Per-component re-render causes & commit timeline** | ✅ agent-react-devtools (port 8097) | ✅ | ✅ | React-fiber-aware; independent of CDP & GPU |
 | **JS heap / leaks** (`Runtime.getHeapUsage` + `HeapProfiler.collectGarbage`) | ✅ **via CDP — `heap_sample.mjs`** | ✅ | ✅ | Hermes JS-object heap; monotonic growth across nav cycles = leak signal |
 | **Startup / TTI** (`performance.rnStartupTiming`) | ✅ | ✅ | ✅ | RN init + bundle-exec timeline |
-| **CPU / memory (OS-level)** | ✅ agent-device `metrics --json` (CPU, memory; FPS column absent) | ✅ | ✅ | XCTest (iOS) / ADB (Android) |
+| **CPU / memory (OS-level)** | ✅ agent-device `perf memory sample` / `perf cpu profile` (FPS absent on Simulator) | ✅ | ✅ | XCTest (iOS) / ADB (Android) |
 
 ### iOS Simulator FPS — platform boundary, not a tool defect
 
@@ -166,7 +135,7 @@ See the **Displayed / GPU-composited frame FPS** row above for the full target b
 | Tool | Channel | Expo support | Signals available without CDP |
 |---|---|---|---|
 | **agent-react-devtools** | port 8097 (react-devtools-core WebSocket) | Auto-connects on port 8097 — **no app code change** (see agent-react-devtools section above). | `profile rerenders`, `profile slow`, `profile timeline`, component tree, render causes |
-| **agent-device** | XCTest (iOS) / ADB (Android) | Works with Expo dev-client builds | `metrics --json` (CPU, memory; **FPS absent on Simulator** — see matrix above); `perf --json` (OS-level); `.ad` replay |
+| **agent-device** | XCTest (iOS) / ADB (Android) | Works with Expo dev-client builds | `perf memory sample`, `perf cpu profile`, `perf frames` (**FPS absent on Simulator** — see matrix above); `.ad` replay |
 | **Flashlight** (`bamlab/flashlight`) | Android ADB — zero app instrumentation | Android only | FPS / CPU / RAM during any scroll workload |
 | **heap_sample.mjs** | CDP raw WS (page 1, Hermes JS runtime) | Works with any Metro + Hermes app; no app code changes | `Runtime.getHeapUsage` — cross-platform JS heap leak signal; use with `--cycles N` + agent-device nav cycles |
 

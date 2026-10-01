@@ -9,3 +9,6 @@ MVP-SCOPE.md
 .metrognome/
 graph.json
 perf-map.html
+
+# Daily CLI auto-update stamp (hooks/update-clis.sh)
+.cli-update-stamp

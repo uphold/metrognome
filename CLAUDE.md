@@ -53,12 +53,12 @@ Node ≥ 18 required (ESM throughout).
 .claude-plugin/      plugin.json + marketplace.json → self-installable via /plugin
 .mcp.json            bundles metro-mcp (pinned dep, run via node; npx fallback) as an MCP server
 commands/            /metrognome slash-command entrypoint (metrognome.md)
-hooks/               SessionStart (npm install) + UserPromptSubmit (perf-memory nudge)
+hooks/               SessionStart (npm install + daily CLI auto-update) + UserPromptSubmit (perf-memory nudge)
 skills/metrognome/
   SKILL.md           the orchestrator — menu (5 items), run-options, loop, gate, config, ledger, memory
   references/        readonly reference docs read by SKILL.md at runtime:
     presets.md       the 5 presets (first-load · listing · memory-leaks · bundle-size · re-renders)
-    tools.md         ⚑ tool command surfaces (agent-device / agent-react-devtools / metro-mcp cheatsheet)
+    tools.md         ⚑ tool routing, matrices, gotchas (commands come from each tool's own --help)
     measurement.md   N-run protocol + gate math explained
     perf-map.md      Perf Map detectors, scoring, signal-vs-noise design
     memory.md        Performance Memory format + read/write/compaction rules
@@ -89,7 +89,7 @@ examples/            sample-rn-app with seeded anti-patterns (fixture only — s
 
 All tuning knobs are in `perf_scan.mjs`'s `CONFIG` block. **Never tune against `examples/sample-rn-app`** — the fixture is circular (it contains exactly what the detectors hunt). Tune against a real OSS RN app. Scoring and calibration details are in `skills/metrognome/references/perf-map.md`.
 
-**`references/tools.md` is the single source of truth for tool command surfaces.** When agent-device, agent-react-devtools, or metro-mcp version-bumps, update there. SKILL.md says "read references/tools.md before invoking any tool."
+**`references/tools.md` holds routing, matrices, and gotchas — not command surfaces.** Commands come from each tool's own version-matched help (`agent-device help workflow`, `agent-react-devtools --help`); `hooks/update-clis.sh` keeps both CLIs on `@latest` (daily, detached, SessionStart). Only add a command to tools.md when it carries a metrognome-specific hazard or teardown rule.
 
 **`stats.mjs` is the gate arbiter.** Every KEEP/REVERT decision flows through it. The formula: `improvement > max(minEffect, k·pooledStdDev)`. Changes that don't clear both the absolute floor and the statistical noise band are reverted. The self-test (`--self-test`) covers edge cases including single-sample degradation.
 
@@ -128,4 +128,4 @@ The `commitMode` config key controls the final commit shape after a run:
 
 The live report (`liveReport: true`) writes `.metrognome/report.html` after each iteration via `build_run_report.mjs`. The report auto-refreshes every 3s and shows baseline, each iteration (KEEP/REVERT badge, delta vs noise band), and the net improvement. The sample run-state (`assets/run-state.sample.json`) renders a complete offline demo: `npm run report -- skills/metrognome/assets/run-state.sample.json --open`.
 
-`hooks/hooks.json` has two hooks: a `SessionStart` that auto-installs npm deps on first load, and a `UserPromptSubmit` that fires when a perf-related prompt lands in a `.metrognome/`-tracked repo to remind you to consult/update `perf-memory.md`.
+`hooks/hooks.json` has two hooks: a `SessionStart` that auto-installs npm deps on first load and daily-updates agent-device/agent-react-devtools to `@latest`, and a `UserPromptSubmit` that fires when a perf-related prompt lands in a `.metrognome/`-tracked repo to remind you to consult/update `perf-memory.md`.
