@@ -1,8 +1,11 @@
 {
   "mcpServers": {
     "metro-mcp": {
-      "command": "npx",
-      "args": ["-y", "metro-mcp@latest"]
+      "command": "sh",
+      "args": [
+        "-c",
+        "B=\"${CLAUDE_PLUGIN_ROOT}/node_modules/metro-mcp/dist/bin/metro-mcp.js\"; [ -f \"${CLAUDE_PLUGIN_ROOT}/node_modules/.metrognome-installed\" ] && [ -f \"$B\" ] && exec node \"$B\" || exec npx -y metro-mcp@0.15"
+      ]
     }
   }
 }

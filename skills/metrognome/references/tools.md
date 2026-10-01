@@ -111,7 +111,9 @@ agent-react-devtools profile diff <before.json> <after.json> [--threshold N]  # 
 
 ## metro-mcp (bundled MCP server)
 
-Connects to Metro via Chrome DevTools Protocol — **no app code changes** for most features. Works with Expo, bare RN, anything on Metro + Hermes. Bundled via `.mcp.json` (`npx -y metro-mcp@latest`); call tools directly as MCP tools (not via Bash).
+Connects to Metro via Chrome DevTools Protocol — **no app code changes** for most features. Works with Expo, bare RN, anything on Metro + Hermes. Bundled via `.mcp.json` (pinned plugin dependency, run with `node` directly; `npx` fallback only before the SessionStart install lands); call tools directly as MCP tools (not via Bash).
+
+**Lifecycle:** Claude Code spawns one stdio proxy per session; every proxy for the same project attaches to one shared `metro-mcp serve` daemon, which exits ~30s after the last proxy leaves. Never kill it from the loop. If `metro-mcp` / `npm exec` processes stack up, it's idle Claude sessions — close them.
 
 **Expo / New Arch CDP gotchas** (verified: Expo SDK 55 / RN 0.83 / New Arch, June 2026):
 

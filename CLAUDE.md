@@ -51,7 +51,7 @@ Node ≥ 18 required (ESM throughout).
 
 ```
 .claude-plugin/      plugin.json + marketplace.json → self-installable via /plugin
-.mcp.json            bundles metro-mcp (npx -y metro-mcp@latest) as an MCP server
+.mcp.json            bundles metro-mcp (pinned dep, run via node; npx fallback) as an MCP server
 commands/            /metrognome slash-command entrypoint (metrognome.md)
 hooks/               SessionStart (npm install) + UserPromptSubmit (perf-memory nudge)
 skills/metrognome/

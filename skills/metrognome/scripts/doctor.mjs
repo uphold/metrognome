@@ -558,7 +558,7 @@ function main() {
   const ard = has('agent-react-devtools');
   console.log(`  ${ad ? ok(true) : warn} agent-device ${ad ? '' : '— install: npm i -g agent-device (or use npx)'}`);
   console.log(`  ${ard ? ok(true) : warn} agent-react-devtools ${ard ? '' : '— install: npm i -g agent-react-devtools (or use npx)'}`);
-  console.log(`  ${warn} metro-mcp — bundled via this plugin's .mcp.json (npx -y metro-mcp@latest); needs a LIVE Metro session to return data`);
+  console.log(`  ${warn} metro-mcp — bundled via this plugin's .mcp.json (pinned dependency, run via node); needs a LIVE Metro session to return data`);
   const rnbpInstalled = sh(`find "${os.homedir()}/.claude/plugins" -path "*/react-native-best-practices*" -name "*.md" -maxdepth 6 2>/dev/null | head -1`);
   console.log(`  ${rnbpInstalled ? ok(true) : warn} react-native-best-practices${rnbpInstalled ? '' : ' — install: /plugin install react-native-best-practices@callstack-agent-skills'}`);
 

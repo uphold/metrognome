@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- **Stacked metro-mcp processes** — metro-mcp is now a pinned plugin dependency launched with `node` directly (`npx` fallback only before the SessionStart install lands), removing the resident `npm exec` wrapper and `@latest` registry hit from every Claude session and keeping all sessions on one version (one shared daemon per project). The SessionStart install writes a `node_modules/.metrognome-installed` marker holding a `package.json` checksum only after `npm install` succeeds (a dependency change re-installs), and `.mcp.json` checks that marker and the metro-mcp bin, so a partial, in-progress, or stale install falls back to `npx` instead of crashing. Session teardown (`agent-react-devtools stop`) now applies to every mode that brings up a live session; the loop never kills metro-mcp and never runs `agent-device close` (it quits the app).
+
+---
+
 ## v0.2.6 — 2026-07-23
 
 ### Added
