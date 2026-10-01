@@ -81,6 +81,8 @@ examples/            sample-rn-app with seeded anti-patterns (fixture only — s
 
 ## Critical architectural rules
 
+**metrognome is a public repo — everything committed must stay abstract.** Never commit details from any target app or other repo: app/repo names, bundle ids, screen names, UI labels or testIDs, OTP/PIN or other secret values, account data, error codes, emails, or screenshots. Examples in docs, tests, and fixtures must be generic (or come from `examples/sample-rn-app`). Per-app knowledge belongs only in that app's own `.metrognome/` (screen-map, perf-memory). The same applies to commit messages, PR titles/descriptions, CHANGELOG, and review comments. Before every commit/push, scan the diff and PR text for target-app specifics; when in doubt, genericize.
+
 **Signal-vs-noise is the core design invariant of the Perf Map.** RN static heuristics fire constantly in healthy code. Four mechanisms in `perf_scan.mjs` prevent noise dominating:
 1. Severity weights (CRITICAL 10 · HIGH 5 · MEDIUM 1.5 · LOW 0.4)
 2. Diminishing returns past `diminishAfter` (3) hits of the same detector per file
