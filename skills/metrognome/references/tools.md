@@ -60,6 +60,14 @@ metro-mcp's bundled tool list includes device-control-shaped tools (`take_screen
 Drives iOS Simulator, Android Emulator, physical devices, tvOS, macOS, desktop. **Commands come from the tool, not this file:** read `agent-device help workflow` (version-matched operating guide) at the start of every session, and `agent-device <cmd> --help` before any flag you haven't seen this session. The `SessionStart` hook keeps it on `@latest`, so memorized flags go stale. Topic help: `agent-device help <dogfooding|debugging|replay|...>`.
 
 Gotchas the upstream guide doesn't cover:
+- Taps are `press` (`tap` is an alias). `fill <selector> "v"` replaces a field; `type` appends to the focused one.
+- **Never `open --foreground`** — agent-device's own XCTest runner counts as a running app → `AMBIGUOUS_MATCH`. Attach with `open <bundleId>` (no `--relaunch`; idempotent, preserves the current screen). Bundle id: Metro `/json/list` → `appId`.
+- **RN overlay hint** in any output → `agent-device react-native dismiss-overlay` before the next interaction.
+- Selector priority: `id="…"` (testID) > `label="…"` > visual + device-keyed hint (no AX node). `@eN` refs go stale after every mutation.
+- Runner + daemon self-idle after 5 min; a CLI version bump replaces a stale daemon automatically.
+- **`find <text>` with no action taps the match** — it is not read-only. Observe with `snapshot -i` / `is` / `get`.
+- Buttons: use `role=button label="…"` — RN primary buttons usually expose an `[other]` wrapper with the same label → `AMBIGUOUS_MATCH`.
+- Sheets / animated success screens may be missing from `snapshot -i` (it lists the screen underneath) — screenshot is truth; see `references/navigation.md` → *Interaction rules*.
 - **`close` quits the app** (not just the session) — metrognome never runs it at teardown; the session, runner, and daemon self-idle after 5 min.
 
 **metrognome uses it to:** produce the workload (open/scroll/cycle) and grab device-level CPU/mem timing for `first-load`, `listing`, `memory-leaks`.

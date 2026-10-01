@@ -13,7 +13,7 @@ This skill owns the menu, loop, gate, Ledger, Memory, and Perf Map. **Measuremen
 
 | Need | Tool | How |
 |---|---|---|
-| Drive the app / simulate a user (open, scroll, tap, open↔close cycles) | **agent-device** (CLI) | `agent-device open|scroll|tap|snapshot|screenshot …` |
+| Drive the app / simulate a user (open, scroll, press, open↔close cycles) | **agent-device** (CLI) | `agent-device open|scroll|press|snapshot|screenshot …` |
 | Per-component re-render causes, slow renders, commit timeline | **agent-react-devtools** (CLI daemon) | `agent-react-devtools get tree | get component @c1 | profile slow` |
 | Hermes CPU/heap, network, console/exceptions, JS exec, navigation | **metro-mcp** (bundled MCP) | call MCP tools directly — *preferred* for `first-load`; `listing`/`re-renders` run CDP-free if runtime channel is unavailable (see `references/tools.md`) |
 | **JS-heap leak sampling** (`memory-leaks`) — cross-platform incl. iOS Simulator | **`scripts/heap_sample.mjs`** | `node heap_sample.mjs --cycles N` → CSV → `stats.mjs --direction lower --unit bytes` |
@@ -157,9 +157,10 @@ Doctor detects what needs fixing; the agent **performs all setup automatically**
 
 1. **Probe** — `get_connection_status` (metro-mcp) + `agent-react-devtools status`.
    - Metro reachable AND ≥1 live Hermes target AND ≥1 agent-react-devtools connected → session OK, proceed. **Never relaunch a healthy session.**
+   - **Attach agent-device (always, even when healthy):** bundle id = `appId` of the live target in `localhost:${port}/json/list` (fallback: `screen-map.md` `bundleId`, then `agent-device apps`). Run `agent-device open <bundleId> --platform <ios|android>` — **no `--relaunch`** (idempotent foreground; keeps the current screen) and **never `--foreground`** (agent-device's own runner makes it ambiguous). If the output flags a React Native overlay, `agent-device react-native dismiss-overlay`. Interaction rules: `references/navigation.md` → *Interaction rules*.
 2. **Metro down** → run `doctor.mjs --launch-metro` (opens a terminal with the start command, best-effort on macOS); poll `/json/list` until Metro answers. If unavailable or fails, print the start command and ask the user to run it.
 3. **Metro up but app dead** (`cdpConnected:false` or "0 connected") → recover programmatically:
-   - Resolve bundle id via `agent-device apps` or metro-mcp `list_devices` (e.g. `com.metrognome.pulse`).
+   - Resolve bundle id: `/json/list` `appId` → `screen-map.md` `bundleId` → `agent-device apps` (e.g. `com.metrognome.pulse`).
    - `agent-device open <bundleId> --relaunch` (terminates + relaunches on the booted simulator/device).
    - Re-probe: `agent-react-devtools wait --connected --timeout 30`.
    - **Note:** `reload_app` only refreshes a live JS bundle — it does NOT revive a dead session (3× no-op confirmed). Only `--relaunch` or a manual app open revives it.
@@ -224,6 +225,10 @@ screen — so it can get itself to the target screen instead of assuming it's al
 - **On a dead-end** (missing or stale Route): try autonomously first (snapshot, likely control, tap,
   confirm); if still stuck, ask the user for a text hint or a walkthrough, confirm via snapshot, and
   record the verified Route.
+- **Write as you go**: every screen metrognome drives gets a `## Screens` block (how to recognise it,
+  elements touched + selector/verb that worked, observed result, nuances that needed a retry), and
+  every newly reached screen gets a Route — recorded right after the snapshot confirms the landing,
+  so a fresh session knows its full way around the app.
 - **OTP** is just another referenced secret (`$MG_OTP`) — no TOTP generation; unset + a real dynamic
   code needed → pause and ask.
 

@@ -9,6 +9,10 @@
 - **agent-device / agent-react-devtools stay on `@latest`** — new `hooks/update-clis.sh` (SessionStart, at most once a day, detached, never blocks) updates globally installed CLIs that are behind.
 - `references/tools.md` no longer carries command cheatsheets — commands come from each tool's version-matched help (`agent-device help workflow`, `agent-react-devtools --help`); it keeps routing, matrices, and gotchas. Replaced agent-device commands removed in 0.21 (`metrics --json`, aggregate `perf --json`) with `perf memory sample` / `perf cpu profile` / `perf frames`.
 
+### Added
+- **First-try navigation** — bring-up attaches agent-device with `open <bundleId>` (bundle id from Metro `/json/list`; no `--relaunch`, never `--foreground`) and dismisses RN overlays. `references/navigation.md` gains step verbs (`press id=` › `press "label"` › `press visual "…"` + device-keyed hint, `fill`, `keys` for OTP/PIN keypads) and interaction rules (selector priority, `role=button`, one back step at a time, snapshot-vs-screenshot, `find` taps).
+- **Screen memory** — `screen-map.md` gains a `## Screens` section (identify · elements · do · result · nuances · verified) and a `## Conventions` section for app-wide quirks, written as metrognome drives each screen so a fresh session knows its way around the app. Only superficial, state-independent navigation is recorded (no error states or account-dependent results), and irreversible controls are marked never-drive. Doctor's template includes both sections.
+
 ---
 
 ## v0.2.6 — 2026-07-23

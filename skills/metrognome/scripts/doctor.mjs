@@ -327,6 +327,7 @@ const SCREEN_MAP_HEADER = (name) => `# Screen Map — ${name}
 > Secrets are referenced by $NAME from .metrognome/secrets.local.json (gitignored) — never inline them.
 > Identifiers are stable accessibility labels / testIDs / visible text, NOT ephemeral @e3 refs
 > (those are resolved live from an agent-device snapshot at run time). Commit this file with the app.
+> Record only superficial, state-independent navigation — no error states or account-dependent results.
 
 ## App
 bundleId: <fill in — e.g. com.example.staging>
@@ -335,15 +336,19 @@ launch: agent-device open <bundleId> --relaunch
 ## Auth
 env: <fill in — e.g. staging>
 steps:
-  - tap  "Email"                    <!-- agent-device needs a tap to focus before typing -->
-  - type $MG_EMAIL
-  - tap  "Password"
-  - type $MG_PW
-  - tap  "Sign in"
+  - fill  "Email" $MG_EMAIL          <!-- verbs: press id="x" (preferred) · press "X" · press visual "…" + hint · fill "X" $V · keys $V -->
+  - fill  "Password" $MG_PW
+  - press "Sign in"
 lands: <fill in — e.g. Home>
+
+## Conventions       <!-- app-wide quirks (controls missing from AX, shared testIDs, never-drive areas) -->
+<!-- entries below, learned as metrognome navigates -->
 
 ## Routes            <!-- screen · from <anchor>: <step> → <step> · verified <date> -->
 <!-- entries below, learned as metrognome navigates -->
+
+## Screens           <!-- one block per screen: identify · elements · do · result · nuances · verified <date> -->
+<!-- written live as metrognome drives each screen — see references/navigation.md -->
 `;
 
 const DEFAULT_CONFIG = {
