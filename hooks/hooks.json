@@ -5,7 +5,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -d \"${CLAUDE_PLUGIN_ROOT}/node_modules/@babel\" ] || npm --prefix \"${CLAUDE_PLUGIN_ROOT}\" install --omit=dev --quiet 2>/dev/null || true"
+            "command": "R=\"${CLAUDE_PLUGIN_ROOT}\"; M=\"$R/node_modules/.metrognome-installed\"; L=\"$(cksum < \"$R/package.json\")\"; [ \"$(cat \"$M\" 2>/dev/null)\" = \"$L\" ] || { npm --prefix \"$R\" install --omit=dev --quiet 2>/dev/null && printf '%s' \"$L\" > \"$M\"; } || true"
+          },
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/update-clis.sh\""
           }
         ]
       }
