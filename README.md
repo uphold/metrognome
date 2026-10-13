@@ -32,7 +32,7 @@ React Native performance tooling is powerful but scattered — each tool knows o
 /plugin install metrognome
 ```
 
-**Prerequisites:** Node ≥ 18 · React Native / Expo app on Metro + Hermes · clean git tree.
+**Prerequisites:** Node ≥ 22 · React Native / Expo app on Metro + Hermes · clean git tree.
 
 Then run **Doctor** once (`/metrognome` → **3. Doctor**) in your RN app to install the CLI tools and bootstrap `.metrognome/`.
 
@@ -143,7 +143,7 @@ See [`templates/ci/README.md`](templates/ci/README.md) for setup, cost, and gotc
 
 ## Requirements & constraints
 
-- **Node ≥ 18**; React Native / Expo app on Metro + Hermes.
+- **Node ≥ 22**; React Native / Expo app on Metro + Hermes.
 - **Clean git tree required** — git is the experiment log; auto-revert needs a clean baseline. Doctor refuses to run dirty.
 - **Perf Map + stats are device-free.** The live loop needs a simulator/emulator/device + a running Metro session.
 - **`bundle-size` runs headless** (CI-friendly). `listing`, `re-renders`, `memory-leaks`, `first-load` need a live device or simulator.

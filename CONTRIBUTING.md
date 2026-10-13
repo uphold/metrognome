@@ -4,7 +4,7 @@ Thanks for helping make metrognome better! This repo **is** the Claude Code plug
 
 ## Dev setup
 
-- **Node ≥ 18** (ESM throughout — every script is `.mjs`).
+- **Node ≥ 22** (ESM throughout — every script is `.mjs`).
 - `npm install` in the repo root (deps: `@babel/parser`, `@babel/traverse`, `ws`).
 
 ## Test surface
@@ -17,7 +17,7 @@ npm run smoke                       # offline chain: perf_scan → build_perf_ma
 claude plugin validate . --strict   # official plugin manifest validation (CI runs this too)
 ```
 
-CI (`.github/workflows/ci.yml`) runs the same surface on Node 18.x and 20.x. The live path (metro-mcp / real device / MCP runtime) cannot be CI-tested — if your change touches it, describe your manual verification in the PR.
+CI (`.github/workflows/ci.yml`) runs the same surface on Node 22.x and 24.x. The live path (metro-mcp / real device / MCP runtime) cannot be CI-tested — if your change touches it, describe your manual verification in the PR.
 
 ## Critical rules
 

@@ -566,8 +566,8 @@ async function main() {
 
   // Node + babel deps
   const node = process.versions.node;
-  const nodeOk = parseInt(node, 10) >= 18;
-  console.log(`  ${ok(nodeOk)} node ${node} (>=18 required)`);
+  const nodeOk = parseInt(node, 10) >= 22;
+  console.log(`  ${ok(nodeOk)} node ${node} (>=22 required)`);
 
   const requireLocal = createRequire(import.meta.url);
   let babelOk = true;

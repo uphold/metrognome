@@ -45,7 +45,7 @@ node skills/metrognome/scripts/stats.mjs --self-test
 node skills/metrognome/scripts/doctor.mjs
 ```
 
-Node ≥ 18 required (ESM throughout).
+Node ≥ 22 required (ESM throughout).
 
 ## Repo layout & architecture
 

@@ -16,7 +16,7 @@
   "keywords": ["react-native", "expo", "performance", "metro", "hermes", "profiling", "claude-code", "plugin", "codex", "cursor", "gemini-cli", "copilot", "ai-agent"],
   "license": "MIT",
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "bin": {
     "metrognome": "bin/metrognome.mjs"

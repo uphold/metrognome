@@ -1,6 +1,6 @@
 # metrognome — cross-harness anchor
 
-This repo **is** the metrognome plugin itself. For development guidance see `CLAUDE.md`; for setting it up across AI agents see `COMPATIBILITY.md`.
+This repo **is** the metrognome plugin itself. For development guidance see `.claude/CLAUDE.md`; for setting it up across AI agents see `COMPATIBILITY.md`.
 
 ## Using metrognome
 
