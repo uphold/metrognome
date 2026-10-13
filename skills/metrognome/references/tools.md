@@ -155,6 +155,6 @@ When the metro-mcp runtime channel is unavailable, **run `listing` and `re-rende
 
 ## react-native-best-practices (Callstack agent-skill)
 
-Knowledge base from `callstackincubator/agent-skills`: **10 JS + 10 native + 9 bundling = 29 guides**, each rated CRITICAL/HIGH/MEDIUM, organized around Measure → Optimize → Re-measure → Validate. Not vendored (avoids license/staleness) — install via Doctor. `presets.md` maps each preset to the specific guide to consult. This is the source of the *hypothesis*; metrognome supplies the *measured verdict*.
+Knowledge base from `callstackincubator/agent-skills`: **10 JS + 10 native + 9 bundling = 29 guides**, each rated CRITICAL/HIGH/MEDIUM, organized around Measure → Optimize → Re-measure → Validate. Ships inside Callstack's **`building-react-native-apps`** plugin (the standalone `react-native-best-practices` plugin was retired upstream in callstackincubator/agent-skills#76). Not vendored (avoids license/staleness) — Doctor auto-installs it and prints the `guides:` dir; guide slug `<slug>` = `<guides>/<slug>.md`. `presets.md` maps each preset to the specific guide to consult. This is the source of the *hypothesis*; metrognome supplies the *measured verdict*.
 
 The Claude Code harness keeps installed plugins current automatically. The **Senior Engineer Audit** (mode 5) grounds every finding in these guides + `references/architectural-perf-catalog.md`.

@@ -73,8 +73,8 @@ Doctor stamps a new `.metrognome/perf-memory.md` with:
 
 ```
 | Preset    | Guide / Fix                                          | Kept / Tried | Effects          |
-| listing   | js/optimizing-flatlist (getItemLayout missing …)     | 2/2          | -213 ms, -169 ms |
-| re-renders| js/hoist-inline-props (inline-prop hoist)            | 0/1          | below noise band |
+| listing   | js-lists-flatlist-flashlist (getItemLayout missing …)     | 2/2          | -213 ms, -169 ms |
+| re-renders| js-react-compiler (inline-prop hoist)            | 0/1          | below noise band |
 ```
 
 - **Proven wins** (`kept > 0`) — ranked fix patterns with measured deltas.

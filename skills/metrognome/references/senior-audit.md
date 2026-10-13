@@ -26,7 +26,7 @@ a staff RN performance engineer. Device-free scan; fix handoff reuses the measur
 
 ### Step 1 — Grounding
 
-- Check that `react-native-best-practices` is installed (Doctor reports if absent). If absent: proceed on catalog reasoning alone, note "Callstack guide `<slug>` not installed" per finding, and nudge: "Run `/plugin install react-native-best-practices@callstack-agent-skills` to install."
+- Doctor auto-installs Callstack's `building-react-native-apps` plugin (ships `react-native-best-practices`) and prints its `guides:` dir; guide `<slug>` = `<guides>/<slug>.md`. If Doctor reports it failed: proceed on catalog reasoning alone, note "Callstack guide `<slug>` not installed" per finding, and nudge: "Run `claude plugin install building-react-native-apps --marketplace callstackincubator/agent-skills`."
 - Read the Callstack guides relevant to the anti-patterns being investigated (slugs in
   `architectural-perf-catalog.md`).
 - Read `references/architectural-perf-catalog.md` (the reasoning corpus).
