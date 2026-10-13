@@ -20,6 +20,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { execSync, execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
+import { heal, verdict, GRACE_MS } from './metro_heal.mjs';
 
 // ── Pure detection functions (exported; no I/O — all inputs are strings/objects) ─
 
@@ -327,6 +328,7 @@ const SCREEN_MAP_HEADER = (name) => `# Screen Map — ${name}
 > Secrets are referenced by $NAME from .metrognome/secrets.local.json (gitignored) — never inline them.
 > Identifiers are stable accessibility labels / testIDs / visible text, NOT ephemeral @e3 refs
 > (those are resolved live from an agent-device snapshot at run time). Commit this file with the app.
+> Record only superficial, state-independent navigation — no error states or account-dependent results.
 
 ## App
 bundleId: <fill in — e.g. com.example.staging>
@@ -335,15 +337,19 @@ launch: agent-device open <bundleId> --relaunch
 ## Auth
 env: <fill in — e.g. staging>
 steps:
-  - tap  "Email"                    <!-- agent-device needs a tap to focus before typing -->
-  - type $MG_EMAIL
-  - tap  "Password"
-  - type $MG_PW
-  - tap  "Sign in"
+  - fill  "Email" $MG_EMAIL          <!-- verbs: press id="x" (preferred) · press "X" · press visual "…" + hint · fill "X" $V · keys $V -->
+  - fill  "Password" $MG_PW
+  - press "Sign in"
 lands: <fill in — e.g. Home>
+
+## Conventions       <!-- app-wide quirks (controls missing from AX, shared testIDs, never-drive areas) -->
+<!-- entries below, learned as metrognome navigates -->
 
 ## Routes            <!-- screen · from <anchor>: <step> → <step> · verified <date> -->
 <!-- entries below, learned as metrognome navigates -->
+
+## Screens           <!-- one block per screen: identify · elements · do · result · nuances · verified <date> -->
+<!-- written live as metrognome drives each screen — see references/navigation.md -->
 `;
 
 const DEFAULT_CONFIG = {
@@ -409,6 +415,20 @@ function selfTest() {
     console.log(`  ${eq ? 'PASS' : 'FAIL'}  ${name}  (got ${JSON.stringify(got)}, want ${JSON.stringify(want)})`);
     eq ? pass++ : fail++;
   };
+
+  // metro_heal — stale daemon detection
+  {
+    const now = Date.parse('2026-01-01T00:10:00Z');
+    const old = '2026-01-01T00:00:00Z';
+    const fresh = new Date(now - GRACE_MS / 2).toISOString();
+    const opts = { metroHasTarget: true, now };
+    check('heal: dead pid → dead', verdict({ alive: false, startedAt: old }, opts), 'dead');
+    check('heal: disconnected + target → stale', verdict({ alive: true, connected: false, startedAt: old }, opts), 'stale');
+    check('heal: connected → keep', verdict({ alive: true, connected: true, startedAt: old }, opts), null);
+    check('heal: probe failed → keep', verdict({ alive: true, connected: null, startedAt: old }, opts), null);
+    check('heal: Metro down → keep', verdict({ alive: true, connected: false, startedAt: old }, { ...opts, metroHasTarget: false }), null);
+    check('heal: within grace → keep', verdict({ alive: true, connected: false, startedAt: fresh }, opts), null);
+  }
 
   // parseGitState — all four states
   check('no-repo → state', parseGitState({ insideWorkTree: false }).state, 'no-repo');
@@ -539,7 +559,7 @@ function selfTest() {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-function main() {
+async function main() {
   if (process.argv.includes('--self-test')) return selfTest();
 
   console.log(`\nmetrognome doctor — ${repo}\n`);
@@ -558,7 +578,7 @@ function main() {
   const ard = has('agent-react-devtools');
   console.log(`  ${ad ? ok(true) : warn} agent-device ${ad ? '' : '— install: npm i -g agent-device (or use npx)'}`);
   console.log(`  ${ard ? ok(true) : warn} agent-react-devtools ${ard ? '' : '— install: npm i -g agent-react-devtools (or use npx)'}`);
-  console.log(`  ${warn} metro-mcp — bundled via this plugin's .mcp.json (npx -y metro-mcp@latest); needs a LIVE Metro session to return data`);
+  console.log(`  ${warn} metro-mcp — bundled via this plugin's .mcp.json (pinned dependency, run via node); needs a LIVE Metro session to return data`);
   const rnbpInstalled = sh(`find "${os.homedir()}/.claude/plugins" -path "*/react-native-best-practices*" -name "*.md" -maxdepth 6 2>/dev/null | head -1`);
   console.log(`  ${rnbpInstalled ? ok(true) : warn} react-native-best-practices${rnbpInstalled ? '' : ' — install: /plugin install react-native-best-practices@callstack-agent-skills'}`);
 
@@ -697,6 +717,9 @@ function main() {
 
   console.log(`\n  Live session:`);
   console.log(`  ${ok(metro.reachable)} Metro dev server on :${port}${metro.reachable ? ` (${metro.liveTargets} live Hermes target${metro.liveTargets !== 1 ? 's' : ''})` : ' — not reachable'}`);
+  for (const a of await heal()) {
+    console.log(`  ${a.verdict === 'stale' ? warn : ok(true)} metro-mcp: reaped ${a.verdict} daemon pid ${a.pid} (${a.cwd})${a.verdict === 'stale' ? ' — pinned to a gone device; run /mcp → reconnect metro-mcp' : ''}`);
+  }
   if (ard) {
     console.log(`  ${ok(devtools.running && devtools.connected > 0)} agent-react-devtools daemon — ${devtools.running ? `${devtools.connected} app${devtools.connected !== 1 ? 's' : ''} connected` : 'not running'}`);
   }
@@ -785,4 +808,4 @@ function main() {
   console.log(`    For 'listing' on Simulator, gate on re-renders or longtask ms instead of FPS.\n`);
 }
 
-main();
+main().catch((e) => { console.error(`\n  doctor failed: ${e.message}`); process.exit(1); });

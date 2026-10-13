@@ -40,6 +40,7 @@
     "doctor:test": "node skills/metrognome/scripts/doctor.mjs --self-test",
     "playbook": "node skills/metrognome/scripts/build_playbook.mjs",
     "playbook:test": "node skills/metrognome/scripts/build_playbook.mjs --self-test",
+    "heal:e2e": "node skills/metrognome/scripts/metro_heal.e2e.mjs",
     "smoke": "node skills/metrognome/scripts/perf_scan.mjs examples/sample-rn-app --out /tmp/mg-graph.json --quiet && node skills/metrognome/scripts/build_perf_map.mjs /tmp/mg-graph.json --out /tmp/mg-map.html && node skills/metrognome/scripts/build_run_report.mjs skills/metrognome/assets/run-state.sample.json --out /tmp/mg-report.html",
     "prepublishOnly": "npm test",
     "test": "npm run stats:test && npm run doctor:test && npm run playbook:test"
@@ -47,6 +48,7 @@
   "dependencies": {
     "@babel/parser": "^7.29.7",
     "@babel/traverse": "^7.29.7",
+    "metro-mcp": "0.15.0",
     "ws": "^8.18.0"
   }
 }
