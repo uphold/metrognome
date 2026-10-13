@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.2.7 — 2026-10-13
 
 ### Fixed
 - **Callstack guides never resolved** — Callstack moved `react-native-best-practices` into the `building-react-native-apps` plugin (callstackincubator/agent-skills#76). Doctor now checks that plugin with `claude plugin list --json` instead of searching the plugin cache, which reported a stale copy as installed. Guide slugs in `perf_scan.mjs` and `presets.md` now match Callstack's reference filenames; the old ones (`js/optimizing-flatlist`, …) never did.
