@@ -8,14 +8,14 @@
 #     run-state (assets/run-state.sample.json)
 #   - index.html   — landing page (docs/pages/index.html) with attribution
 #
-# No generated HTML is committed to main — everything is built here and
+# No generated HTML is committed to master — everything is built here and
 # deployed as a Pages artifact.
 
 name: Pages
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   workflow_dispatch:
 
 permissions:

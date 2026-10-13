@@ -42,5 +42,5 @@ jobs:
       # Offline, no auth. --strict treats warnings as errors.
       - name: Official plugin validation (strict)
         run: |
-          npm install -g @anthropic-ai/claude-code
+          npm install -g @anthropic-ai/claude-code@2.1.226
           claude plugin validate . --strict

@@ -181,6 +181,24 @@ function sh(cmd) {
   try { return execSync(cmd, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { return null; }
 }
 
+/**
+ * Block the current thread for `ms` milliseconds without shelling out.
+ *
+ * `Atomics.wait` on a `SharedArrayBuffer` is the standard cross-platform synchronous sleep: it
+ * blocks the calling thread on the main loop and needs no child process, so it works identically
+ * on Windows, macOS and Linux.
+ */
+function sleepSync(ms) {
+  try {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+  } catch {
+    // Some hardened runtimes disallow `Atomics.wait` on the main thread; fall back to a short
+    // busy yield rather than failing the probe outright.
+    const until = Date.now() + ms;
+    while (Date.now() < until) { /* spin */ }
+  }
+}
+
 // ── Module-level state (safe to evaluate before --self-test short-circuits) ───
 
 const repo = process.cwd();
@@ -220,7 +238,10 @@ function pollMetro(port, timeoutMs = 30000) {
     if (last.reachable) return last;
     const remaining = deadline - Date.now();
     if (remaining > 2000) {
-      try { execSync('sleep 2', { stdio: 'ignore' }); } catch {}
+      // Wait in-process rather than shelling out to POSIX `sleep`, which does not exist on
+      // Windows and whose failure was previously swallowed, causing the probe to run again
+      // immediately against a Metro server that had not finished starting.
+      sleepSync(2000);
     }
   }
   return last;
