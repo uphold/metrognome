@@ -17,7 +17,7 @@ This skill owns the menu, loop, gate, Ledger, Memory, and Perf Map. **Measuremen
 | Per-component re-render causes, slow renders, commit timeline | **agent-react-devtools** (CLI daemon) | `agent-react-devtools get tree | get component @c1 | profile slow` |
 | Hermes CPU/heap, network, console/exceptions, JS exec, navigation | **metro-mcp** (bundled MCP) | call MCP tools directly — *preferred* for `first-load`; `listing`/`re-renders` run CDP-free if runtime channel is unavailable (see `references/tools.md`) |
 | **JS-heap leak sampling** (`memory-leaks`) — cross-platform incl. iOS Simulator | **`scripts/heap_sample.mjs`** | `node heap_sample.mjs --cycles N` → CSV → `stats.mjs --direction lower --unit bytes` |
-| Which fix to try (the hypothesis) | **react-native-best-practices** (Callstack agent-skill) | look up the guide mapped to the preset |
+| Which fix to try (the hypothesis) | **react-native-best-practices** (Callstack skill, in the `building-react-native-apps` plugin) | read the guide mapped to the preset — Doctor prints the `guides:` dir; slug `<slug>` = `<guides>/<slug>.md` |
 
 Profiling overlaps (CPU from both metro-mcp and agent-device); pick the best source. **Visual/controlling actions — screenshot, tap, type, swipe, long-press, button press — always route through agent-device**, even though metro-mcp exposes overlapping tools (`take_screenshot`, `tap_element`, `type_text`, …); those are CDP conveniences, not the intended path (see `references/tools.md`). `references/tools.md` has the current command surface — **read it before invoking any tool** and update it when a tool's flags change.
 
@@ -66,7 +66,7 @@ Run this for an Autoresearch preset. A port of the web playbook's Measure→Diag
    - **Setup commit** (if `commitMode != no-commit`): `git add <setup paths only — never preExistingDirty>` and commit as `chore(metrognome): setup workspace`. Record `baselineSha = git rev-parse HEAD` (after setup, so loop reverts never touch infra).
    - **Load memory and config:** read `.metrognome/perf-memory.md` for known hotspots; if `.metrognome/playbook.md` exists, read it for measured fix priors (proven wins + dead ends); load `.metrognome/config.json` (`commitMode`, `liveReport`, `runs`, `k`, `budget`).
 2. **Baseline.** Run the preset's measurement **N times** (default N=5; discard one warmup). Compute **mean ± stddev** with `scripts/stats.mjs`. Open a Ledger entry (`assets/ledger.template.md` → `.metrognome/ledger/<timestamp>-<preset>.md`).
-3. **Diagnose.** Consult the `react-native-best-practices` guide. Identify the **single dominant bottleneck** — **never stack fixes**.
+3. **Diagnose.** Read the preset's `react-native-best-practices` guide (`<guides>/<slug>.md`, path from Doctor). Identify the **single dominant bottleneck** — **never stack fixes**.
 4. **Propose + apply.** One atomic candidate fix from the preset's catalog.
 5. **Re-measure.** Identical N-run protocol.
 6. **Gate.** Decide with `scripts/stats.mjs` (see `references/measurement.md`):
@@ -147,7 +147,7 @@ Reasoning corpus (10 anti-pattern entries): **`references/architectural-perf-cat
 Doctor detects what needs fixing; the agent **performs all setup automatically** and presents **one consolidated prompt** (see below).
 
 **What Doctor detects:**
-- **Tools present?** `metro-mcp` is bundled (this plugin's `.mcp.json`). CLIs are `npx`-invocable; install globally with `npm i -g agent-device agent-react-devtools` for speed. Callstack knowledge base: install `react-native-best-practices` agent-skill from `callstackincubator/agent-skills`. Doctor checks if it is present.
+- **Tools present?** `metro-mcp` is bundled (this plugin's `.mcp.json`). CLIs are `npx`-invocable; install globally with `npm i -g agent-device agent-react-devtools` for speed. Doctor **auto-installs** missing `agent-device` / `agent-react-devtools` (`npm i -g`) and Callstack's `building-react-native-apps` plugin (ships the `react-native-best-practices` skill; `claude plugin install … --scope user`), then prints the guides dir. A just-installed plugin's skill loads next session — read guides from the printed path meanwhile. If an auto-install fails, run the printed command for the user.
 - **Live app session** — probes Metro (`localhost:${port}/json/list`) and the agent-react-devtools daemon (`agent-react-devtools status`); see sub-protocol below. **RN auto-connects on port 8097 — no app code change needed. Never add `import 'agent-react-devtools/connect'`: it is web-only and crashes RN New Arch** (see `references/tools.md`).
 - **New Arch** — detected from `app.json`/`app.config.*` `newArchEnabled` or RN ≥ 0.76 (ships New Arch by default). Sets metro-mcp `newArchitecture: true`.
 - **Pre-existing dirty files** — listed informational; left untouched.
@@ -258,7 +258,7 @@ Config keys:
   "startedAt": "2026-06-02T18:00:00Z", "unit": "ms", "direction": "lower",
   "baseline": { "mean": 1190, "std": 12, "runs": 4 },
   "iterations": [
-    { "n": 1, "hypothesis": "getItemLayout", "guide": "js/optimizing-flatlist",
+    { "n": 1, "hypothesis": "getItemLayout", "guide": "js-lists-flatlist-flashlist",
       "change": "Added getItemLayout to FeedScreen FlatList",
       "candidate": { "mean": 985, "std": 9, "runs": 4 },
       "decision": "KEEP", "delta": "-205ms (-17%)", "noiseBand": 24, "commit": "abc1234" }

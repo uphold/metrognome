@@ -177,6 +177,42 @@ const warn = '\x1b[33m?? \x1b[0m';
 function has(cmd) {
   try { execSync(`command -v ${cmd}`, { stdio: 'ignore' }); return true; } catch { return false; }
 }
+function run(cmd, args) {
+  try { execFileSync(cmd, args, { stdio: 'ignore' }); return true; } catch { return false; }
+}
+
+// Callstack's react-native-best-practices skill ships inside this bundle (since callstackincubator/agent-skills#76).
+const RNBP_PLUGIN = 'building-react-native-apps@callstack-agent-skills';
+const RNBP_LEGACY = 'react-native-best-practices@callstack-agent-skills';
+const RNBP_INSTALL_ARGS = ['plugin', 'install', 'building-react-native-apps', '--marketplace', 'callstackincubator/agent-skills']; // bare name: the CLI rejects @marketplace + --marketplace
+const RNBP_INSTALL = `claude ${RNBP_INSTALL_ARGS.join(' ')}`;
+
+/** Pure: pick the enabled bundle (for this project) out of `claude plugin list --json`. */
+export function findRnbp(plugins = []) {
+  const entry = plugins.find((p) => p.id === RNBP_PLUGIN && p.enabled);
+  return {
+    guides: entry ? path.join(entry.installPath, 'skills', 'react-native-best-practices', 'references') : null,
+    legacy: plugins.some((p) => p.id === RNBP_LEGACY),
+  };
+}
+
+/** Ensure the Callstack bundle is installed + enabled; returns its guides dir and a status note. */
+function ensureRnbp() {
+  const list = () => { try { return JSON.parse(execFileSync('claude', ['plugin', 'list', '--json'], { stdio: ['ignore', 'pipe', 'ignore'] })); } catch { return null; } };
+  const before = list();
+  if (!before) return { guides: null, note: ` — claude CLI not found; run: ${RNBP_INSTALL}` };
+  let found = findRnbp(before);
+  let installed = false;
+  if (!found.guides) {
+    installed = run('claude', [...RNBP_INSTALL_ARGS, '--scope', 'user'])
+      || run('claude', ['plugin', 'enable', RNBP_PLUGIN]);
+    found = findRnbp(list() || []);
+  }
+  const legacy = found.legacy ? ` (stale ${RNBP_LEGACY} entry — remove: claude plugin uninstall ${RNBP_LEGACY})` : '';
+  if (!found.guides) return { guides: null, note: ` — auto-install failed; run: ${RNBP_INSTALL}${legacy}` };
+  return { guides: found.guides, note: `${installed ? ' — just installed; its skill loads next session (read guides from the path below now)' : ''}${legacy}` };
+}
+
 function sh(cmd) {
   try { return execSync(cmd, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { return null; }
 }
@@ -574,6 +610,16 @@ function selfTest() {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 
+  // findRnbp — Callstack bundle detection from `claude plugin list --json`
+  {
+    const p = (id, enabled) => ({ id, enabled, installPath: '/c' });
+    check('rnbp: none → no guides', findRnbp([]).guides, null);
+    check('rnbp: disabled → no guides', findRnbp([p(RNBP_PLUGIN, false)]).guides, null);
+    check('rnbp: enabled → guides dir', findRnbp([p(RNBP_PLUGIN, true)]).guides, '/c/skills/react-native-best-practices/references');
+    check('rnbp: legacy alone → no guides', findRnbp([p(RNBP_LEGACY, true)]).guides, null);
+    check('rnbp: legacy flagged', findRnbp([p(RNBP_LEGACY, false)]).legacy, true);
+  }
+
   console.log(`\n  ${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }
@@ -595,13 +641,15 @@ async function main() {
   try { requireLocal('@babel/parser'); requireLocal('@babel/traverse'); } catch { babelOk = false; }
   console.log(`  ${ok(babelOk)} @babel/parser + @babel/traverse${babelOk ? '' : ' — run: npm install in the metrognome plugin root'}`);
 
-  const ad = has('agent-device');
-  const ard = has('agent-react-devtools');
-  console.log(`  ${ad ? ok(true) : warn} agent-device ${ad ? '' : '— install: npm i -g agent-device (or use npx)'}`);
-  console.log(`  ${ard ? ok(true) : warn} agent-react-devtools ${ard ? '' : '— install: npm i -g agent-react-devtools (or use npx)'}`);
+  // Toolchain — install whatever is missing so a new user has zero homework.
+  for (const cli of ['agent-device', 'agent-react-devtools']) {
+    const present = has(cli) || (run('npm', ['i', '-g', cli]) && has(cli));
+    console.log(`  ${present ? ok(true) : warn} ${cli}${present ? '' : ` — auto-install failed; run: npm i -g ${cli} (or use npx)`}`);
+  }
   console.log(`  ${warn} metro-mcp — bundled via this plugin's .mcp.json (pinned dependency, run via node); needs a LIVE Metro session to return data`);
-  const rnbpInstalled = sh(`find "${os.homedir()}/.claude/plugins" -path "*/react-native-best-practices*" -name "*.md" -maxdepth 6 2>/dev/null | head -1`);
-  console.log(`  ${rnbpInstalled ? ok(true) : warn} react-native-best-practices${rnbpInstalled ? '' : ' — install: /plugin install react-native-best-practices@callstack-agent-skills'}`);
+  const rnbp = ensureRnbp();
+  console.log(`  ${rnbp.guides ? ok(true) : warn} ${RNBP_PLUGIN} (react-native-best-practices)${rnbp.note}`);
+  if (rnbp.guides) console.log(`        guides: ${rnbp.guides}`);
 
   // ── Git state ─────────────────────────────────────────────────────────────
   const gitInsideWorkTree = sh('git rev-parse --is-inside-work-tree') === 'true';
