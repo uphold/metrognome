@@ -78,6 +78,11 @@ jobs:
           disable-animations: true
           script: echo "Emulator booted"
 
+      # agent-device >= 0.21.29 drives the app and reads the runtime (react-devtools + cdp).
+      # Doctor never installs globals on CI, so install it here.
+      - name: Install agent-device
+        run: npm i -g agent-device@latest
+
       # Start Metro in the background so the app can bundle and connect.
       - name: Start Metro
         run: |
@@ -137,7 +142,7 @@ jobs:
             - listing:        agent-device react-devtools profile start → agent-device scroll → profile stop (commit count)
             - re-renders:     agent-device react-devtools profile start → interaction → profile stop (commit count); repeat to compare
             - memory-leaks:   heap_sample.mjs --cycles N across open/close (Hermes required)
-            - first-load:     per cold run: agent-device open --relaunch → re-select cdp target → cdp runtime eval of rnStartupTiming fields; gate on ttiMs (see presets.md)
+            - first-load:     per cold run: agent-device open --relaunch → re-select cdp target → cdp runtime eval of rnStartupTiming fields; gate on startupMs (see presets.md)
 
             For each iteration:
               a) PROPOSE one atomic fix per the preset's candidate fixes (see presets.md).
@@ -147,9 +152,9 @@ jobs:
               e) GATE — run stats.mjs and parse the JSON `decision` field:
                    node "${CLAUDE_PLUGIN_ROOT}/skills/metrognome/scripts/stats.mjs" \
                      --baseline "<baseline_values_csv>" --candidate "<candidate_values_csv>" \
-                     --min-effect <preset_floor> --k 2 --direction <lower|higher> --unit <ms|bytes|fps>
+                     --min-effect <preset_floor> --k 2 --direction <lower|higher> --unit <ms|bytes|fps|commits>
                  stats.mjs always exits 0; read its JSON stdout and check `decision`.
-                 Gate floors by preset: bundle-size 5000 bytes · listing 20ms · re-renders 1 count ·
+                 Gate floors by preset: bundle-size 5000 bytes · listing 1 commit (longtask totalMs: 20ms) · re-renders 1 commit ·
                  memory-leaks 2000000 bytes · first-load 50ms.
 
               f) If decision == "KEEP":

@@ -37,9 +37,9 @@ KEEP  ⇔  improvement > noise_band
 
 Both thresholds must be cleared:
 - **`k · pooled_std`** — statistical floor: improvement must stand out from jitter (k≈2 ≈ clearly-separated distributions).
-- **`min_effect`** — practical floor: don't chase a real-but-trivial gain. Per preset: TTI 30 ms, jank 2 dropped frames, RAM a few MB (2000000 / 500000 bytes), FPS 2–3 fps, bundle a few KB.
+- **`min_effect`** — practical floor: don't chase a real-but-trivial gain. Per preset: startup 30 ms, React commits 1, jank 2 dropped frames, RAM a few MB (2000000 / 500000 bytes), FPS 2–3 fps, bundle a few KB.
 
-Direction: **lower-is-better** for TTI, jank, RAM, bundle bytes, wasted commits; **higher-is-better** for FPS.
+Direction: **lower-is-better** for startup, jank, RAM, bundle bytes, wasted commits; **higher-is-better** for FPS.
 
 ## Choose a metric your platform can measure
 
@@ -51,7 +51,7 @@ Before baselining, confirm the metric is available on your target — N/A or con
 | **JS-thread jank** (longtask ms) | ✅ `PerformanceObserver` via `agent-device cdp runtime eval` | ✅ | ✅ |
 | **Re-render commit count / slow renders** | ✅ `agent-device react-devtools` | ✅ | ✅ |
 | **JS-heap bytes** (leak signal) | ✅ `heap_sample.mjs` / `agent-device cdp memory` | ✅ | ✅ |
-| **Startup / TTI** | ✅ | ✅ | ✅ |
+| **Startup** (`rnStartupTiming`) | ✅ | ✅ | ✅ |
 | **CPU / memory (OS)** | ✅ agent-device (no FPS column) | ✅ | ✅ |
 
 For `listing` on iOS Simulator, gate on **commit count** (`profile stop`, `--unit commits`) or **longtask duration** rather than FPS. For `memory-leaks`, use **`heap_sample.mjs --cycles N`** piped into `stats.mjs --direction lower --unit bytes`.

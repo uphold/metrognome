@@ -1,6 +1,6 @@
 # Tools & Signal Routing
 
-metrognome delegates all measurement to two Callstack tools — agent-device and react-native-best-practices. **Cheatsheet + routing table.** When command surfaces don't match, the installed CLI help is the source of truth (`agent-device help workflow`, `agent-device react-devtools --help`, `agent-device help cdp`). **Update this file before a pitch or when a tool version bumps.** (Verified: agent-device 0.21.36.)
+metrognome delegates all measurement to Callstack's agent-device and react-native-best-practices. **Cheatsheet + routing table.** When command surfaces don't match, the installed CLI help is the source of truth (`agent-device help workflow`, `agent-device react-devtools --help`, `agent-device help cdp`). **Update this file before a pitch or when a tool version bumps.** (Verified: agent-device 0.21.36.)
 
 ## Preconditions & recovery
 
@@ -116,7 +116,7 @@ Not all limitations are tool defects — some are hard platform boundaries; use 
 | **JS-thread jank** (`PerformanceObserver longtask`) | ✅ via `agent-device cdp runtime eval` | ✅ | ✅ | JS-thread saturation — heavy `renderItem`, GC pauses, oversized closures; stable in RN 0.83 |
 | **Per-component re-render causes & commit timeline** | ✅ `agent-device react-devtools` | ✅ | ✅ | React-fiber-aware via the Metro debugger channel (Hermes, RN ≥ 0.74); independent of GPU |
 | **JS heap / leaks** (`Runtime.getHeapUsage` + `HeapProfiler.collectGarbage`) | ✅ **via CDP — `heap_sample.mjs` / `agent-device cdp memory`** | ✅ | ✅ | Hermes JS-object heap; monotonic growth across nav cycles = leak signal |
-| **Startup / TTI** (`performance.rnStartupTiming`) | ✅ | ✅ | ✅ | RN init + bundle-exec timeline |
+| **Startup** (`performance.rnStartupTiming`) | ✅ | ✅ | ✅ | RN init + bundle-exec timeline |
 | **CPU / memory (OS-level)** | ✅ agent-device `perf memory sample` / `perf cpu profile` (FPS absent on Simulator) | ✅ | ✅ | XCTest (iOS) / ADB (Android) |
 
 ### iOS Simulator FPS — platform boundary, not a tool defect

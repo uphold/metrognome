@@ -96,17 +96,33 @@ export function detectEngine({ pkg = {}, appJson = {}, appConfigText = '', gradl
   return { engine: 'hermes', source: 'default' };
 }
 
+export const AGENT_DEVICE_MIN = '0.21.29';
+
+/** Numeric version compare; a prerelease of `min` (e.g. 0.21.29-rc.0) counts as below it. */
+export function atLeast(v, min) {
+  const [base, pre] = String(v).split('-');
+  const c = base.localeCompare(min, undefined, { numeric: true });
+  return c > 0 || (c === 0 && !pre);
+}
+
+/**
+ * Every live preset (all but bundle-size) drives the app and reads the runtime through
+ * agent-device (react-devtools + cdp arrive in 0.21.29).
+ * @returns {string|null} one-line reason when too old/missing, null when OK
+ */
+export function agentDeviceGate(version) {
+  return version && atLeast(version, AGENT_DEVICE_MIN) ? null : `needs agent-device >= ${AGENT_DEVICE_MIN} (found ${version || 'none'})`;
+}
+
 /**
  * Can `re-renders` / `listing` run? They profile through `agent-device react-devtools`
- * (Metro debugger channel: dev build, RN >= 0.74, Hermes, agent-device >= 0.21.29).
- * Unknown RN version is allowed (same stance as the Hermes default).
+ * (Metro debugger channel: dev build, RN >= 0.74, Hermes). Unknown RN version is allowed
+ * (same stance as the Hermes default).
  * @returns {string|null} one-line reason when unavailable, null when OK
  */
-export function profilingGate({ rnVersion, engine, agentDevice }) {
-  const atLeast = (v, min) => v.localeCompare(min, undefined, { numeric: true }) >= 0;
+export function profilingGate({ rnVersion, engine }) {
   if (engine === 'jsc') return 'needs Hermes (JSC detected)';
   if (rnVersion && !atLeast(rnVersion, '0.74')) return `needs RN >= 0.74 (found ${rnVersion})`;
-  if (!agentDevice || !atLeast(agentDevice, '0.21.29')) return `needs agent-device >= 0.21.29 (found ${agentDevice || 'none'})`;
   return null;
 }
 
@@ -523,18 +539,24 @@ function selfTest() {
 
   // profilingGate — re-renders / listing availability
   {
-    const base = { rnVersion: '0.74', engine: 'hermes', agentDevice: '0.21.29' };
+    const base = { rnVersion: '0.74', engine: 'hermes' };
     check('gate: minimums → available', profilingGate(base), null);
     check('gate: jsc → unavailable', profilingGate({ ...base, engine: 'jsc' }), 'needs Hermes (JSC detected)');
     check('gate: rn 0.73 → unavailable', profilingGate({ ...base, rnVersion: '0.73' }), 'needs RN >= 0.74 (found 0.73)');
     check('gate: rn 0.100 → available', profilingGate({ ...base, rnVersion: '0.100' }), null);
     check('gate: rn unknown → available', profilingGate({ ...base, rnVersion: null }), null);
-    check('gate: agent-device 0.21.28 → unavailable', profilingGate({ ...base, agentDevice: '0.21.28' }), 'needs agent-device >= 0.21.29 (found 0.21.28)');
-    check('gate: agent-device 0.21.4 → unavailable (numeric compare)', profilingGate({ ...base, agentDevice: '0.21.4' }) !== null, true);
-    check('gate: agent-device 0.21.100 → available', profilingGate({ ...base, agentDevice: '0.21.100' }), null);
-    check('gate: agent-device 1.0.0 → available', profilingGate({ ...base, agentDevice: '1.0.0' }), null);
-    check('gate: agent-device canary → available', profilingGate({ ...base, agentDevice: '0.21.36-canary.1' }), null);
-    check('gate: agent-device missing → unavailable', profilingGate({ ...base, agentDevice: null }), 'needs agent-device >= 0.21.29 (found none)');
+  }
+
+  // agentDeviceGate — every live preset
+  {
+    check('agent-device 0.21.29 → ok', agentDeviceGate('0.21.29'), null);
+    check('agent-device 0.21.28 → blocked', agentDeviceGate('0.21.28'), 'needs agent-device >= 0.21.29 (found 0.21.28)');
+    check('agent-device 0.21.4 → blocked (numeric compare)', agentDeviceGate('0.21.4') !== null, true);
+    check('agent-device 0.21.100 → ok', agentDeviceGate('0.21.100'), null);
+    check('agent-device 1.0.0 → ok', agentDeviceGate('1.0.0'), null);
+    check('agent-device 0.21.36-canary.1 → ok', agentDeviceGate('0.21.36-canary.1'), null);
+    check('agent-device 0.21.29-rc.0 → blocked (prerelease of min)', agentDeviceGate('0.21.29-rc.0') !== null, true);
+    check('agent-device missing → blocked', agentDeviceGate(null), 'needs agent-device >= 0.21.29 (found none)');
   }
 
   // parseMetroTargets
@@ -647,10 +669,14 @@ async function main() {
   // Toolchain — install whatever is missing so a new user has zero homework.
   // First install lives here; hooks/update-clis.sh only bumps already-installed CLIs to @latest.
   const cli = 'agent-device';
-  const present = has(cli) || (autoInstall && run('npm', ['i', '-g', cli]) && has(cli));
-  console.log(`  ${present ? ok(true) : warn} ${cli}${present ? '' : ` — ${autoInstall ? 'auto-install failed' : 'missing'}; run: npm i -g ${cli} (or use npx)`}`);
-  let agentDevice = null;
-  try { agentDevice = execFileSync(cli, ['--version'], { stdio: ['ignore', 'pipe', 'ignore'], timeout: 10000 }).toString().match(/\d+\.\d+\.\d+\S*/)?.[0] ?? null; } catch {}
+  const readVersion = () => {
+    try { return execFileSync(cli, ['--version'], { stdio: ['ignore', 'pipe', 'ignore'], timeout: 10000 }).toString().match(/\d+\.\d+\.\d+\S*/)?.[0] ?? null; } catch { return null; }
+  };
+  let agentDevice = readVersion();
+  // Missing or older than the minimum → install/upgrade to @latest (never on CI runners).
+  if (agentDeviceGate(agentDevice) && autoInstall && run('npm', ['i', '-g', `${cli}@latest`])) agentDevice = readVersion();
+  const agentDeviceBlocked = agentDeviceGate(agentDevice);
+  console.log(`  ${ok(!agentDeviceBlocked)} ${cli}${agentDevice ? ` ${agentDevice}` : ''}${agentDeviceBlocked ? ` — ${autoInstall ? 'auto-install failed; ' : ''}live presets unavailable: ${agentDeviceBlocked}; run: npm i -g ${cli}@latest (bundle-size still runs)` : ''}`);
   const rnbp = ensureRnbp();
   console.log(`  ${rnbp.guides ? ok(true) : warn} ${RNBP_PLUGIN} (react-native-best-practices)${rnbp.note}`);
   if (rnbp.guides) console.log(`        guides: ${rnbp.guides}`);
@@ -725,7 +751,7 @@ async function main() {
     console.log(`    ${warn} JSC engine: first-load, memory-leaks, listing, and re-renders require Hermes.`);
     console.log(`         bundle-size still works with JSC.`);
   }
-  const profilingBlocked = profilingGate({ rnVersion, engine, agentDevice });
+  const profilingBlocked = profilingGate({ rnVersion, engine });
   console.log(`  ${ok(!profilingBlocked)} re-renders / listing (agent-device react-devtools)${profilingBlocked ? ` — unavailable: ${profilingBlocked}; other presets still run` : ''}`);
 
   // ── Device enumeration ────────────────────────────────────────────────────
