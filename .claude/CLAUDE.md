@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-metrognome is a **Claude Code plugin** for React Native performance optimization. This repo IS the plugin itself — not an RN app that uses it. The plugin, once installed, adds a `/metrognome` command to any RN project and orchestrates metro-mcp and Callstack's tooling (agent-device, agent-react-devtools, react-native-best-practices) into a scientific propose→measure→keep/revert loop.
+metrognome is a **Claude Code plugin** for React Native performance optimization. This repo IS the plugin itself — not an RN app that uses it. The plugin, once installed, adds a `/metrognome` command to any RN project and orchestrates Callstack's tooling (agent-device, react-native-best-practices) into a scientific propose→measure→keep/revert loop.
 
 ## Commands
 
@@ -51,7 +51,6 @@ Node ≥ 22 required (ESM throughout).
 
 ```
 .claude-plugin/      plugin.json + marketplace.json → self-installable via /plugin
-.mcp.json            bundles metro-mcp (pinned dep, run via node; npx fallback) as an MCP server
 commands/            /metrognome slash-command entrypoint (metrognome.md)
 hooks/               SessionStart (npm install + daily CLI auto-update) + UserPromptSubmit (perf-memory nudge)
 skills/metrognome/
@@ -83,7 +82,7 @@ examples/            sample-rn-app with seeded anti-patterns (fixture only — s
 
 **metrognome is a public repo — everything committed must stay abstract.** Never commit details from any target app or other repo: app/repo names, bundle ids, screen names, UI labels or testIDs, OTP/PIN or other secret values, account data, error codes, emails, or screenshots. Examples in docs, tests, and fixtures must be generic (or come from `examples/sample-rn-app`). Per-app knowledge belongs only in that app's own `.metrognome/` (screen-map, perf-memory). The same applies to commit messages, PR titles/descriptions, CHANGELOG, and review comments. Before every commit/push, scan the diff and PR text for target-app specifics; when in doubt, genericize.
 
-**No change may introduce XSS or any other security vulnerability.** Treat everything from a target repo or device as untrusted: source paths, component/file names, findings, run-state, ledger text, CLI/MCP output. In the HTML generators (`build_perf_map.mjs`, `build_run_report.mjs`, templates, `docs/pages/`), never inject that data via `innerHTML`/string-built markup — use `textContent`/DOM APIs, and escape `</script>` (`<` → `<`) when inlining JSON into a `<script>` tag. In scripts and hooks, never build shell commands by string interpolation of untrusted input (use `execFile`/arg arrays, quote shell vars), never `eval` it, keep path writes inside the intended directory, and never log or persist `secrets.local.json` values. Review every diff for these before committing.
+**No change may introduce XSS or any other security vulnerability.** Treat everything from a target repo or device as untrusted: source paths, component/file names, findings, run-state, ledger text, CLI output. In the HTML generators (`build_perf_map.mjs`, `build_run_report.mjs`, templates, `docs/pages/`), never inject that data via `innerHTML`/string-built markup — use `textContent`/DOM APIs, and escape `</script>` (`<` → `<`) when inlining JSON into a `<script>` tag. In scripts and hooks, never build shell commands by string interpolation of untrusted input (use `execFile`/arg arrays, quote shell vars), never `eval` it, keep path writes inside the intended directory, and never log or persist `secrets.local.json` values. Review every diff for these before committing.
 
 **Signal-vs-noise is the core design invariant of the Perf Map.** RN static heuristics fire constantly in healthy code. Four mechanisms in `perf_scan.mjs` prevent noise dominating:
 1. Severity weights (CRITICAL 10 · HIGH 5 · MEDIUM 1.5 · LOW 0.4)
@@ -93,7 +92,7 @@ examples/            sample-rn-app with seeded anti-patterns (fixture only — s
 
 All tuning knobs are in `perf_scan.mjs`'s `CONFIG` block. **Never tune against `examples/sample-rn-app`** — the fixture is circular (it contains exactly what the detectors hunt). Tune against a real OSS RN app. Scoring and calibration details are in `skills/metrognome/references/perf-map.md`.
 
-**`references/tools.md` holds routing, matrices, and gotchas — not command surfaces.** Commands come from each tool's own version-matched help (`agent-device help workflow`, `agent-react-devtools --help`); `hooks/update-clis.sh` keeps both CLIs on `@latest` (daily, detached, SessionStart). Only add a command to tools.md when it carries a metrognome-specific hazard or teardown rule.
+**`references/tools.md` holds routing, matrices, and gotchas — not command surfaces.** Commands come from each tool's own version-matched help (`agent-device help workflow`, `agent-device react-devtools --help`); `hooks/update-clis.sh` keeps agent-device on `@latest` (daily, detached, SessionStart). Only add a command to tools.md when it carries a metrognome-specific hazard or teardown rule.
 
 **`stats.mjs` is the gate arbiter.** Every KEEP/REVERT decision flows through it. The formula: `improvement > max(minEffect, k·pooledStdDev)`. Changes that don't clear both the absolute floor and the statistical noise band are reverted. The self-test (`--self-test`) covers edge cases including single-sample degradation.
 
@@ -132,4 +131,4 @@ The `commitMode` config key controls the final commit shape after a run:
 
 The live report (`liveReport: true`) writes `.metrognome/report.html` after each iteration via `build_run_report.mjs`. The report auto-refreshes every 3s and shows baseline, each iteration (KEEP/REVERT badge, delta vs noise band), and the net improvement. The sample run-state (`assets/run-state.sample.json`) renders a complete offline demo: `npm run report -- skills/metrognome/assets/run-state.sample.json --open`.
 
-`hooks/hooks.json` has two hooks: a `SessionStart` that auto-installs npm deps on first load and daily-updates agent-device/agent-react-devtools to `@latest`, and a `UserPromptSubmit` that fires when a perf-related prompt lands in a `.metrognome/`-tracked repo to remind you to consult/update `perf-memory.md`.
+`hooks/hooks.json` has two hooks: a `SessionStart` that auto-installs npm deps on first load and daily-updates agent-device to `@latest`, and a `UserPromptSubmit` that fires when a perf-related prompt lands in a `.metrognome/`-tracked repo to remind you to consult/update `perf-memory.md`.

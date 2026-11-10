@@ -109,9 +109,7 @@ Step and Route text (identifiers, `type` values) is always literal — passed as
 PR: a step can only describe what to press or type, never what to run.
 
 **All driving and evidence-capture in this file is agent-device's job** — snapshot, press, fill, type,
-swipe, long-press, screenshot. metro-mcp exposes overlapping tools (`tap_element`, `type_text`,
-`take_screenshot`, …) but those are CDP conveniences, not the intended route; never reach for them
-here (see `references/tools.md`).
+swipe, long-press, screenshot (see `references/tools.md`).
 
 ## Secret resolution
 

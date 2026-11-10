@@ -89,32 +89,23 @@ jobs:
             sleep 1
           done
 
-      # Start agent-react-devtools daemon (React DevTools telemetry on port 8097).
-      - name: Start agent-react-devtools
-        run: |
-          npx agent-react-devtools start &>/tmp/ard.log &
-          echo "ARD_PID=$!" >> $GITHUB_ENV
-          sleep 3
-
       - uses: anthropics/claude-code-action@4d7e1f0cd85743fdc93b1c8040ab54395da024e2 # v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           # Replace with the metrognome fork/release you trust.
           plugin_marketplaces: https://github.com/uphold/metrognome.git
           plugins: metrognome@metrognome
-          # metro-mcp is bundled via the plugin's .mcp.json — no extra config needed.
           claude_args: >-
             --model claude-sonnet-4-6
             --max-turns 100
-            --allowedTools Read,Edit,Write,Bash(node *),Bash(npx *),Bash(npm ci),Bash(git *),Bash(gh pr create *),Bash(gh pr list *),Bash(find *),Bash(wc *),Bash(cat *),Bash(bc *),Bash(adb *),Bash(agent-device *),Bash(agent-react-devtools *)
+            --allowedTools Read,Edit,Write,Bash(node *),Bash(npx *),Bash(npm ci),Bash(git *),Bash(gh pr create *),Bash(gh pr list *),Bash(find *),Bash(wc *),Bash(cat *),Bash(bc *),Bash(adb *),Bash(agent-device *)
           prompt: |
             # metrognome CI autopilot — device (all presets)
 
             Run NON-INTERACTIVELY. Never present a menu or call AskUserQuestion.
-            An Android emulator is already running. Metro is on port 8081. agent-react-devtools
-            daemon is on port 8097. Scripts are at ${CLAUDE_PLUGIN_ROOT}/skills/metrognome/scripts/
-            metro-mcp is available via MCP (bundled with the plugin). Read references/tools.md
-            before invoking agent-device, agent-react-devtools, or metro-mcp.
+            An Android emulator is already running. Metro is on port 8081.
+            Scripts are at ${CLAUDE_PLUGIN_ROOT}/skills/metrognome/scripts/
+            Read references/tools.md before invoking agent-device.
             Read .metrognome/config.json if present: `budget` overrides $MAX_ITERS; `k`/`runs` override defaults.
 
             ## 1. Create branch
@@ -143,10 +134,10 @@ jobs:
 
             PRESET ROUTING (follow references/presets.md for each):
             - bundle-size:    build JS bundle + measure bytes (see device-free template steps 5/6c)
-            - listing:        agent-device scroll → agent-react-devtools profile rerenders + slow
-            - re-renders:     agent-react-devtools profile rerenders + diff before/after
+            - listing:        agent-device react-devtools profile start → agent-device scroll → profile stop (commit count)
+            - re-renders:     agent-device react-devtools profile start → interaction → profile stop (commit count); repeat to compare
             - memory-leaks:   heap_sample.mjs --cycles N across open/close (Hermes required)
-            - first-load:     agent-device open from cold; metro-mcp CPU profile of startup
+            - first-load:     per cold run: agent-device open --relaunch → re-select cdp target → cdp runtime eval of rnStartupTiming fields; gate on ttiMs (see presets.md)
 
             For each iteration:
               a) PROPOSE one atomic fix per the preset's candidate fixes (see presets.md).

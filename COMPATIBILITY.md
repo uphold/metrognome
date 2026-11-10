@@ -1,67 +1,16 @@
 # Cross-harness compatibility
 
-metrognome's engine (7 Node scripts, the `metro-mcp` MCP server, the `SKILL.md` methodology) is harness-agnostic. This document covers setup for **Codex CLI · Cursor · Gemini CLI · GitHub Copilot CLI** alongside the primary **Claude Code** path.
+metrognome's engine (7 Node scripts, the `SKILL.md` methodology) is harness-agnostic. This document covers setup for **Codex CLI · Cursor · Gemini CLI · GitHub Copilot CLI** alongside the primary **Claude Code** path.
 
 ## Honest limitations
 
-1. **No universal one-command install.** "Multi-agent" means one portable bundle (skill + scripts + MCP) installed once per harness through its own conventions — not a single `/plugin` that works everywhere.
+1. **No universal one-command install.** "Multi-agent" means one portable bundle (skill + scripts) installed once per harness through its own conventions — not a single `/plugin` that works everywhere.
 2. **Hooks don't port.** The Claude Code `SessionStart` hook (auto-installs npm deps) is replaced by `npx` (auto-fetches deps and their transitive deps). The `UserPromptSubmit` perf-memory nudge lives in `AGENTS.md` instead; Gemini CLI has no prompt-submit hook, so it's best-effort there.
 3. **`/metrognome` slash command is Claude Code-only.** On other harnesses the skill auto-triggers on perf symptoms ("slow", "jank", "memory leak", "TTI") without the word "metrognome".
 
 ---
 
-## 1. MCP server (metro-mcp)
-
-`metro-mcp` provides the Metro/CDP runtime bridge. Register it in your harness config:
-
-**Cursor** (`.cursor/mcp.json` or `~/.cursor/mcp.json`):
-```json
-{
-  "mcpServers": {
-    "metro-mcp": {
-      "command": "npx",
-      "args": ["-y", "metro-mcp@latest"]
-    }
-  }
-}
-```
-
-**Gemini CLI** (`~/.gemini/settings.json`):
-```json
-{
-  "mcpServers": {
-    "metro-mcp": {
-      "command": "npx",
-      "args": ["-y", "metro-mcp@latest"]
-    }
-  }
-}
-```
-
-**GitHub Copilot CLI** (`~/.copilot/mcp-config.json`):
-```json
-{
-  "mcpServers": {
-    "metro-mcp": {
-      "command": "npx",
-      "args": ["-y", "metro-mcp@latest"]
-    }
-  }
-}
-```
-
-**Codex CLI** (`~/.codex/config.toml`):
-```toml
-[mcp_servers.metro-mcp]
-command = "npx"
-args = ["-y", "metro-mcp@latest"]
-```
-
-Claude Code already has `metro-mcp` bundled via `.mcp.json` in this repo — no extra config needed.
-
----
-
-## 2. Skill
+## 1. Skill
 
 Copy or symlink `skills/metrognome/` into your harness's skills directory:
 
@@ -82,7 +31,9 @@ The skill's `description:` field already contains keywords that trigger it on pe
 
 ---
 
-## 3. Scripts
+## 2. Scripts
+
+The live loop drives everything through agent-device — install it globally: `npm i -g agent-device` (on Claude Code, Doctor does this for you).
 
 Run any script without cloning:
 
@@ -100,7 +51,7 @@ First run downloads the package and its deps; subsequent runs use the npx cache.
 
 ---
 
-## 4. Instruction file
+## 3. Instruction file
 
 `AGENTS.md` (this repo root) is natively read by Codex, Cursor, and Copilot CLI. For Gemini CLI, add it to `context.fileName` in `~/.gemini/settings.json`:
 
@@ -128,8 +79,5 @@ Displayed-frame **FPS** is unavailable on iOS Simulator (Apple constraint — Si
 
 ### RN < 0.85: one CDP connection
 
-metro-mcp connects via CDP. On RN < 0.85 only one CDP client can be connected at a time. **Close all RN DevTools / Fusebox windows** before running any metro-mcp runtime calls, or you'll get connection errors.
+On RN < 0.85 only one debugger client can be connected at a time. **Close all RN DevTools / Fusebox windows** before running `agent-device cdp` / `react-devtools`, and never run `heap_sample.mjs` alongside them.
 
-### Expo / New Arch timeout workaround
-
-If metro-mcp runtime calls time out on an Expo app with the New Architecture enabled, set `newArchitecture: true` in your app config. The `listing` and `re-renders` presets degrade to the CDP-free path (metro-mcp runtime unverified offline) when this workaround is active.

@@ -10,7 +10,7 @@
       "name": "metrognome",
       "source": "./",
       "version": "0.2.7",
-      "description": "The autonomous performance engineer for React Native — one propose -> measure -> keep/revert loop over metro-mcp and Callstack's RN AI tooling, with a 3D Perf Map and a per-repo performance memory.",
+      "description": "The autonomous performance engineer for React Native — one propose -> measure -> keep/revert loop over Callstack's RN AI tooling, with a 3D Perf Map and a per-repo performance memory.",
       "author": {
         "name": "Xavier",
         "email": "xavi-999@users.noreply.github.com"
@@ -32,8 +32,7 @@
       "tags": [
         "react-native",
         "expo",
-        "profiling",
-        "mcp"
+        "profiling"
       ]
     }
   ]

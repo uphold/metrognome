@@ -10,9 +10,8 @@ A broken session gives noise or zeros. Verify before the N-run protocol:
 
 1. **Git state is `usable`** — `parseGitState` returns `state: 'usable'`. Without this, commits and reverts will throw; print Doctor's remediation and wait.
 2. **Metro is reachable** — `localhost:${port}/json/list` responds with ≥1 live Hermes target (excluding the `-1` ghost). If Metro is down, start it first.
-3. **App session is live** — `agent-react-devtools status` reports ≥1 app connected (required for `re-renders` / `listing`). Run the session bring-up sub-protocol if not.
 
-Doctor's preflight (step 1 of the loop) verifies all three — skip re-running it if Doctor already ran cleanly.
+Doctor's preflight (step 1 of the loop) verifies both — skip re-running it if Doctor already ran cleanly.
 
 ## The N-run protocol
 
@@ -22,7 +21,7 @@ For both baseline and candidate:
 2. **Discard the first run** (JIT/cache costs). Keep the remaining N−1.
 3. Compute **mean ± sample stddev** over kept runs (`scripts/stats.mjs`).
 
-Use the *same* driving workload each time — a `.ad` replay script from agent-device makes this exact. Variable workloads defeat the gate.
+Use the *same* driving workload each time — a `.ad` replay script from agent-device makes this exact. Variable workloads defeat the gate. Baseline and candidate must run on the **same platform and device** — counts differ across platforms for the same interaction (e.g. React commits: iOS 15 vs Android 11–12 for 5 taps); never compare across.
 
 ## The gate
 
@@ -49,13 +48,13 @@ Before baselining, confirm the metric is available on your target — N/A or con
 | Metric | iOS Simulator | iOS device | Android |
 |---|---|---|---|
 | **Displayed-frame FPS** | ❌ unavailable (Apple constraint) | ✅ Instruments / XCTest hitch metrics | ✅ Flashlight (`dumpsys gfxinfo`) |
-| **JS-thread jank** (longtask ms) | ✅ CDP `PerformanceObserver` | ✅ | ✅ |
-| **Re-render commit count / slow renders** | ✅ agent-react-devtools | ✅ | ✅ |
-| **JS-heap bytes** (leak signal) | ✅ `heap_sample.mjs` (CDP) | ✅ | ✅ |
+| **JS-thread jank** (longtask ms) | ✅ `PerformanceObserver` via `agent-device cdp runtime eval` | ✅ | ✅ |
+| **Re-render commit count / slow renders** | ✅ `agent-device react-devtools` | ✅ | ✅ |
+| **JS-heap bytes** (leak signal) | ✅ `heap_sample.mjs` / `agent-device cdp memory` | ✅ | ✅ |
 | **Startup / TTI** | ✅ | ✅ | ✅ |
 | **CPU / memory (OS)** | ✅ agent-device (no FPS column) | ✅ | ✅ |
 
-For `listing` on iOS Simulator, gate on **re-render count** or **longtask duration** rather than FPS. For `memory-leaks`, use **`heap_sample.mjs --cycles N`** piped into `stats.mjs --direction lower --unit bytes`.
+For `listing` on iOS Simulator, gate on **commit count** (`profile stop`, `--unit commits`) or **longtask duration** rather than FPS. For `memory-leaks`, use **`heap_sample.mjs --cycles N`** piped into `stats.mjs --direction lower --unit bytes`.
 
 ## Run it
 

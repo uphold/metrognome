@@ -17,7 +17,7 @@ npm run smoke                       # offline chain: perf_scan → build_perf_ma
 claude plugin validate . --strict   # official plugin manifest validation (CI runs this too)
 ```
 
-CI (`.github/workflows/ci.yml`) runs the same surface on Node 22.x and 24.x. The live path (metro-mcp / real device / MCP runtime) cannot be CI-tested — if your change touches it, describe your manual verification in the PR.
+CI (`.github/workflows/ci.yml`) runs the same surface on Node 22.x and 24.x. The live path (real device / app runtime) cannot be CI-tested — if your change touches it, describe your manual verification in the PR.
 
 ## Critical rules
 
@@ -25,7 +25,7 @@ These three rules are load-bearing — PRs that break them will be asked to chan
 
 1. **Never tune detectors against `examples/sample-rn-app`.** The fixture is circular — it contains exactly what the detectors hunt, so any tuning against it is self-confirming. Tune `perf_scan.mjs`'s `CONFIG` block against a real OSS RN app (e.g. bluesky's social-app) and read `skills/metrognome/references/perf-map.md` first.
 2. **Version harmony.** The version must match across `package.json`, `.claude-plugin/plugin.json`, and the plugin entry in `.claude-plugin/marketplace.json`. Bump all three or none. After a version bump, run `npm publish` so the npm package stays in sync.
-3. **`skills/metrognome/references/tools.md` is the single source of truth for tool command surfaces.** When agent-device, agent-react-devtools, or metro-mcp changes its CLI/API, update it there — nowhere else. SKILL.md instructs the agent to read it before invoking any tool.
+3. **`skills/metrognome/references/tools.md` is the single source of truth for tool command surfaces.** When agent-device changes its CLI, update it there — nowhere else. SKILL.md instructs the agent to read it before invoking any tool.
 
 ## Release process (maintainers)
 
