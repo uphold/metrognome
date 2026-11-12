@@ -4,7 +4,7 @@ description: The autonomous performance engineer for React Native. Open the metr
 argument-hint: "[first-load|listing|memory-leaks|bundle-size|re-renders] [--target <Screen/Component>] | <natural-language goal>"
 ---
 
-metrognome routes React Native performance work through metro-mcp and Callstack's tools (agent-device, agent-react-devtools, react-native-best-practices), runs a scientific propose → measure → keep/revert loop, builds a 3D Perf Map, and maintains per-repo performance memory.
+metrognome routes React Native performance work through Callstack's tools (agent-device, react-native-best-practices), runs a scientific propose → measure → keep/revert loop, builds a 3D Perf Map, and maintains per-repo performance memory.
 
 Read `${CLAUDE_PLUGIN_ROOT}/skills/metrognome/SKILL.md` now and follow it.
 

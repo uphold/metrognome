@@ -3,11 +3,11 @@
  * doctor.mjs — metrognome preflight + first-run setup.
  *
  * Run from the TARGET RN repo. Auto-bootstraps the .metrognome/ workspace,
- * probes Metro dev server + agent-react-devtools daemon live status, detects
- * git state, JS engine (Hermes/JSC), architecture, and connected devices.
+ * probes Metro dev server live status, detects git state, JS engine (Hermes/JSC),
+ * architecture, connected devices, and whether React profiling presets can run.
  *
  * Usage:
- *   node doctor.mjs            # report checklist + setup actions
+ *   node doctor.mjs            # report checklist
  *   node doctor.mjs --init     # also create .metrognome/ if missing
  *   node doctor.mjs --launch-metro  # open Metro in a new terminal (macOS best-effort)
  *                                   # or print the start command on non-macOS / failure
@@ -20,7 +20,6 @@ import path from 'node:path';
 import process from 'node:process';
 import { execSync, execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { heal, verdict, GRACE_MS } from './metro_heal.mjs';
 
 // ── Pure detection functions (exported; no I/O — all inputs are strings/objects) ─
 
@@ -70,10 +69,10 @@ export function detectArch({ pkg = {}, appJson = {}, appConfigText = '' }) {
 /**
  * Detect JS engine (Hermes or JSC) from app config + gradle.properties.
  * Default is Hermes — the RN default since 0.70.
- * @param {{pkg?:object, appJson?:object, appConfigText?:string, gradleProps?:string}} opts
+ * @param {{pkg?:object, appJson?:object, appConfigText?:string, gradleProps?:string, podfileProps?:object}} opts
  * @returns {{ engine:'hermes'|'jsc'|'unknown', source:string }}
  */
-export function detectEngine({ pkg = {}, appJson = {}, appConfigText = '', gradleProps = '' }) {
+export function detectEngine({ pkg = {}, appJson = {}, appConfigText = '', gradleProps = '', podfileProps = {} }) {
   // gradle.properties hermesEnabled=false → explicit JSC opt-out
   if (/^\s*hermesEnabled\s*=\s*false\s*$/m.test(gradleProps)) {
     return { engine: 'jsc', source: 'gradleProps' };
@@ -91,7 +90,40 @@ export function detectEngine({ pkg = {}, appJson = {}, appConfigText = '', gradl
   if (/jsEngine\s*:\s*['"]jsc['"]/.test(appConfigText)) return { engine: 'jsc', source: 'appConfig' };
   if (/jsEngine\s*:\s*['"]hermes['"]/.test(appConfigText)) return { engine: 'hermes', source: 'appConfig' };
 
+  // ios/Podfile.properties.json (Expo prebuild) — flat dotted keys
+  if (podfileProps?.['expo.jsEngine'] === 'jsc') return { engine: 'jsc', source: 'podfileProps' };
+
   return { engine: 'hermes', source: 'default' };
+}
+
+export const AGENT_DEVICE_MIN = '0.21.29';
+
+/** Numeric version compare; a prerelease of `min` (e.g. 0.21.29-rc.0) counts as below it. */
+export function atLeast(v, min) {
+  const [base, pre] = String(v).split('-');
+  const c = base.localeCompare(min, undefined, { numeric: true });
+  return c > 0 || (c === 0 && !pre);
+}
+
+/**
+ * Every live preset (all but bundle-size) drives the app and reads the runtime through
+ * agent-device (react-devtools + cdp arrive in 0.21.29).
+ * @returns {string|null} one-line reason when too old/missing, null when OK
+ */
+export function agentDeviceGate(version) {
+  return version && atLeast(version, AGENT_DEVICE_MIN) ? null : `needs agent-device >= ${AGENT_DEVICE_MIN} (found ${version || 'none'})`;
+}
+
+/**
+ * Can `re-renders` / `listing` run? They profile through `agent-device react-devtools`
+ * (Metro debugger channel: dev build, RN >= 0.74, Hermes). Unknown RN version is allowed
+ * (same stance as the Hermes default).
+ * @returns {string|null} one-line reason when unavailable, null when OK
+ */
+export function profilingGate({ rnVersion, engine }) {
+  if (engine === 'jsc') return 'needs Hermes (JSC detected)';
+  if (rnVersion && !atLeast(rnVersion, '0.74')) return `needs RN >= 0.74 (found ${rnVersion})`;
+  return null;
 }
 
 /**
@@ -117,17 +149,6 @@ export function parseMetroTargets(jsonListRaw) {
   } catch {
     return { reachable: true, liveTargets: 0 };
   }
-}
-
-/**
- * Parse `agent-react-devtools status` output.
- * @param {string|null} statusOut
- * @returns {{ running:boolean, connected:number }}
- */
-export function parseDevtoolsStatus(statusOut) {
-  if (!statusOut) return { running: false, connected: 0 };
-  const m = statusOut.match(/Apps:\s*(\d+)\s+connected/i);
-  return { running: true, connected: m ? parseInt(m[1], 10) : 0 };
 }
 
 /**
@@ -285,11 +306,6 @@ function pollMetro(port, timeoutMs = 30000) {
     }
   }
   return last;
-}
-
-function probeDevtools() {
-  const out = sh('agent-react-devtools status 2>/dev/null');
-  return parseDevtoolsStatus(out);
 }
 
 // ── Start command detection ───────────────────────────────────────────────────
@@ -477,20 +493,6 @@ function selfTest() {
     eq ? pass++ : fail++;
   };
 
-  // metro_heal — stale daemon detection
-  {
-    const now = Date.parse('2026-01-01T00:10:00Z');
-    const old = '2026-01-01T00:00:00Z';
-    const fresh = new Date(now - GRACE_MS / 2).toISOString();
-    const opts = { metroHasTarget: true, now };
-    check('heal: dead pid → dead', verdict({ alive: false, startedAt: old }, opts), 'dead');
-    check('heal: disconnected + target → stale', verdict({ alive: true, connected: false, startedAt: old }, opts), 'stale');
-    check('heal: connected → keep', verdict({ alive: true, connected: true, startedAt: old }, opts), null);
-    check('heal: probe failed → keep', verdict({ alive: true, connected: null, startedAt: old }, opts), null);
-    check('heal: Metro down → keep', verdict({ alive: true, connected: false, startedAt: old }, { ...opts, metroHasTarget: false }), null);
-    check('heal: within grace → keep', verdict({ alive: true, connected: false, startedAt: fresh }, opts), null);
-  }
-
   // parseGitState — all four states
   check('no-repo → state', parseGitState({ insideWorkTree: false }).state, 'no-repo');
   check('no-repo → dirty empty', parseGitState({ insideWorkTree: false }).dirty, []);
@@ -531,6 +533,30 @@ function selfTest() {
     check('nothing → hermes', detectEngine({}).engine, 'hermes');
     check('nothing → default source', detectEngine({}).source, 'default');
     check('expo.jsEngine hermes → hermes', detectEngine({ appJson: { expo: { jsEngine: 'hermes' } } }).engine, 'hermes');
+    check('Podfile.properties expo.jsEngine jsc → jsc', detectEngine({ podfileProps: { 'expo.jsEngine': 'jsc' } }).engine, 'jsc');
+    check('Podfile.properties hermes → hermes', detectEngine({ podfileProps: { 'expo.jsEngine': 'hermes' } }).engine, 'hermes');
+  }
+
+  // profilingGate — re-renders / listing availability
+  {
+    const base = { rnVersion: '0.74', engine: 'hermes' };
+    check('gate: minimums → available', profilingGate(base), null);
+    check('gate: jsc → unavailable', profilingGate({ ...base, engine: 'jsc' }), 'needs Hermes (JSC detected)');
+    check('gate: rn 0.73 → unavailable', profilingGate({ ...base, rnVersion: '0.73' }), 'needs RN >= 0.74 (found 0.73)');
+    check('gate: rn 0.100 → available', profilingGate({ ...base, rnVersion: '0.100' }), null);
+    check('gate: rn unknown → available', profilingGate({ ...base, rnVersion: null }), null);
+  }
+
+  // agentDeviceGate — every live preset
+  {
+    check('agent-device 0.21.29 → ok', agentDeviceGate('0.21.29'), null);
+    check('agent-device 0.21.28 → blocked', agentDeviceGate('0.21.28'), 'needs agent-device >= 0.21.29 (found 0.21.28)');
+    check('agent-device 0.21.4 → blocked (numeric compare)', agentDeviceGate('0.21.4') !== null, true);
+    check('agent-device 0.21.100 → ok', agentDeviceGate('0.21.100'), null);
+    check('agent-device 1.0.0 → ok', agentDeviceGate('1.0.0'), null);
+    check('agent-device 0.21.36-canary.1 → ok', agentDeviceGate('0.21.36-canary.1'), null);
+    check('agent-device 0.21.29-rc.0 → blocked (prerelease of min)', agentDeviceGate('0.21.29-rc.0') !== null, true);
+    check('agent-device missing → blocked', agentDeviceGate(null), 'needs agent-device >= 0.21.29 (found none)');
   }
 
   // parseMetroTargets
@@ -543,16 +569,6 @@ function selfTest() {
     check('reachable', r.reachable, true);
     const onlyGhost = JSON.stringify([{ id: '-1' }]);
     check('only ghost → liveTargets 0', parseMetroTargets(onlyGhost).liveTargets, 0);
-  }
-
-  // parseDevtoolsStatus
-  {
-    check('null → not running', parseDevtoolsStatus(null).running, false);
-    check('null → connected 0', parseDevtoolsStatus(null).connected, 0);
-    const r = parseDevtoolsStatus('Apps: 2 connected');
-    check('running', r.running, true);
-    check('connected count', r.connected, 2);
-    check('1 connected', parseDevtoolsStatus('Apps: 1 connected').connected, 1);
   }
 
   // parseSimctl
@@ -652,11 +668,15 @@ async function main() {
 
   // Toolchain — install whatever is missing so a new user has zero homework.
   // First install lives here; hooks/update-clis.sh only bumps already-installed CLIs to @latest.
-  for (const cli of ['agent-device', 'agent-react-devtools']) {
-    const present = has(cli) || (autoInstall && run('npm', ['i', '-g', cli]) && has(cli));
-    console.log(`  ${present ? ok(true) : warn} ${cli}${present ? '' : ` — ${autoInstall ? 'auto-install failed' : 'missing'}; run: npm i -g ${cli} (or use npx)`}`);
-  }
-  console.log(`  ${warn} metro-mcp — bundled via this plugin's .mcp.json (pinned dependency, run via node); needs a LIVE Metro session to return data`);
+  const cli = 'agent-device';
+  const readVersion = () => {
+    try { return execFileSync(cli, ['--version'], { stdio: ['ignore', 'pipe', 'ignore'], timeout: 10000 }).toString().match(/\d+\.\d+\.\d+\S*/)?.[0] ?? null; } catch { return null; }
+  };
+  let agentDevice = readVersion();
+  // Missing or older than the minimum → install/upgrade to @latest (never on CI runners).
+  if (agentDeviceGate(agentDevice) && autoInstall && run('npm', ['i', '-g', `${cli}@latest`])) agentDevice = readVersion();
+  const agentDeviceBlocked = agentDeviceGate(agentDevice);
+  console.log(`  ${ok(!agentDeviceBlocked)} ${cli}${agentDevice ? ` ${agentDevice}` : ''}${agentDeviceBlocked ? ` — ${autoInstall ? 'auto-install failed; ' : ''}live presets unavailable: ${agentDeviceBlocked}; run: npm i -g ${cli}@latest (bundle-size still runs)` : ''}`);
   const rnbp = ensureRnbp();
   console.log(`  ${rnbp.guides ? ok(true) : warn} ${RNBP_PLUGIN} (react-native-best-practices)${rnbp.note}`);
   if (rnbp.guides) console.log(`        guides: ${rnbp.guides}`);
@@ -720,39 +740,19 @@ async function main() {
   const rnStr = rnVersion ? ` (RN ${rnVersion})` : '';
   console.log(`  ${ok(true)} architecture: ${archStr}${rnStr}`);
 
-  const { engine, source: engineSource } = detectEngine({ pkg: parsedPkg, appJson: appJsonObj, appConfigText, gradleProps });
+  let podfileProps = {};
+  try { podfileProps = JSON.parse(fs.readFileSync(path.join(repo, 'ios', 'Podfile.properties.json'), 'utf8')); } catch {}
+
+  const { engine, source: engineSource } = detectEngine({ pkg: parsedPkg, appJson: appJsonObj, appConfigText, gradleProps, podfileProps });
   const engineLabel = engine === 'hermes' ? 'Hermes' : engine === 'jsc' ? 'JSC' : 'unknown';
   const engineSrc = engineSource !== 'default' ? ` (via ${engineSource})` : '';
   console.log(`  ${ok(engine === 'hermes')} engine: ${engineLabel}${engineSrc}`);
   if (engine === 'jsc') {
-    console.log(`    ${warn} JSC engine: first-load and memory-leaks (CDP heap/CPU) require Hermes.`);
-    console.log(`         bundle-size, listing, and re-renders still work with JSC.`);
+    console.log(`    ${warn} JSC engine: first-load, memory-leaks, listing, and re-renders require Hermes.`);
+    console.log(`         bundle-size still works with JSC.`);
   }
-
-  // ── Entry-file inspection (detect harmful connect import if present) ───────
-  // RN auto-connects to agent-react-devtools on port 8097 — no app code change needed.
-  let connectPresent = false;
-  let connectFile = null;
-  let entryFile = null;
-  const candidates = ['index.js', 'index.ts', 'index.tsx', 'App.js', 'App.ts', 'App.tsx'];
-  try {
-    if (parsedPkg?.main && !parsedPkg.main.startsWith('node_modules') && !parsedPkg.main.includes('expo-router')) {
-      const mainPath = path.join(repo, parsedPkg.main);
-      if (fs.existsSync(mainPath) && !candidates.includes(parsedPkg.main)) candidates.unshift(parsedPkg.main);
-    }
-  } catch {}
-  for (const c of candidates) {
-    const fp = path.join(repo, c);
-    if (fs.existsSync(fp)) {
-      entryFile = c;
-      const content = fs.readFileSync(fp, 'utf8');
-      if (content.includes('agent-react-devtools/connect')) {
-        connectPresent = true;
-        connectFile = c;
-      }
-      break;
-    }
-  }
+  const profilingBlocked = profilingGate({ rnVersion, engine });
+  console.log(`  ${ok(!profilingBlocked)} re-renders / listing (agent-device react-devtools)${profilingBlocked ? ` — unavailable: ${profilingBlocked}; other presets still run` : ''}`);
 
   // ── Device enumeration ────────────────────────────────────────────────────
   let bootedSims = [];
@@ -791,49 +791,20 @@ async function main() {
   // ── Live session probe ────────────────────────────────────────────────────
   const port = metroPort();
   const metro = probeMetro(port);
-  const devtools = probeDevtools();
   const { startCmd } = detectStartEnv();
 
   console.log(`\n  Live session:`);
   console.log(`  ${ok(metro.reachable)} Metro dev server on :${port}${metro.reachable ? ` (${metro.liveTargets} live Hermes target${metro.liveTargets !== 1 ? 's' : ''})` : ' — not reachable'}`);
-  for (const a of await heal()) {
-    console.log(`  ${a.verdict === 'stale' ? warn : ok(true)} metro-mcp: reaped ${a.verdict} daemon pid ${a.pid} (${a.cwd})${a.verdict === 'stale' ? ' — pinned to a gone device; run /mcp → reconnect metro-mcp' : ''}`);
-  }
-  if (ard) {
-    console.log(`  ${ok(devtools.running && devtools.connected > 0)} agent-react-devtools daemon — ${devtools.running ? `${devtools.connected} app${devtools.connected !== 1 ? 's' : ''} connected` : 'not running'}`);
-  }
   if (!metro.reachable) {
     console.log(`  ${warn} Metro is not running. Start it with: ${startCmd}`);
     console.log(`       or run: node doctor.mjs --launch-metro  to open it in a new terminal`);
-  } else if (metro.liveTargets === 0 || (devtools.running && devtools.connected === 0)) {
-    console.log(`  ${warn} Metro is up but app session is dead (0 connected / 0 live Hermes targets).`);
+  } else if (metro.liveTargets === 0) {
+    console.log(`  ${warn} Metro is up but app session is dead (0 live Hermes targets).`);
     console.log(`       Relaunch the app: agent-device open <bundleId> --relaunch`);
-    console.log(`       Then: agent-react-devtools wait --connected`);
-    console.log(`       reload_app does NOT revive a dead session — only relaunching the app works.`);
-  }
-
-  // ── Setup actions ─────────────────────────────────────────────────────────
-  const setupActions = [];
-  if (connectPresent) {
-    setupActions.push(
-      `REMOVE 'agent-react-devtools/connect' import from ${connectFile}: this is a web-only export that crashes RN New Arch. RN auto-connects on port 8097 — no app code change needed.`
-    );
-  }
-  if (newArch) {
-    setupActions.push(`SET metro-mcp newArchitecture:true in metro-mcp config (New Arch detected${rnVersion ? ` — RN ${rnVersion}` : ''})`);
+    console.log(`       A Metro reload does NOT revive a dead session — only relaunching the app works.`);
   }
 
   console.log('');
-  if (setupActions.length === 0) {
-    const state = connectFile
-      ? `connect import absent from entry file (correct for RN — auto-connects on 8097)`
-      : entryFile ? `entry file ${entryFile} looks clean` : 'no setup actions needed';
-    console.log(`  ${ok(true)} setup actions: none — ${state}`);
-  } else {
-    console.log(`  Setup actions (agent will handle these automatically):`);
-    for (const a of setupActions) console.log(`    • ${a}`);
-  }
-
   // ── .metrognome/ workspace ────────────────────────────────────────────────
   const mgExists = fs.existsSync(path.join(repo, '.metrognome'));
   if (mgExists) {
@@ -884,7 +855,7 @@ async function main() {
   console.log(`    iOS Simulator: NOT available (Apple constraint — Simulator renders on host Mac GPU).`);
   console.log(`    iOS real device: Instruments / XCTest hitch metrics.`);
   console.log(`    Android: Flashlight (bamlab/flashlight) via dumpsys gfxinfo — zero app instrumentation.`);
-  console.log(`    For 'listing' on Simulator, gate on re-renders or longtask ms instead of FPS.\n`);
+  console.log(`    For 'listing' on Simulator, gate on commit count (react-devtools profile stop) or longtask ms instead of FPS.\n`);
 }
 
 main().catch((e) => { console.error(`\n  doctor failed: ${e.message}`); process.exit(1); });

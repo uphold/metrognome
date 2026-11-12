@@ -26,9 +26,7 @@ metrognome orchestrates the following independent open-source tools, which are
 NOT bundled with or modified by this project. All trademarks and copyrights
 belong to their respective owners (Callstack and contributors):
 
-  - metro-mcp                    https://www.npmjs.com/package/metro-mcp
   - agent-device                 https://www.npmjs.com/package/agent-device
-  - agent-react-devtools         https://www.npmjs.com/package/agent-react-devtools
   - react-native-best-practices  https://github.com/callstackincubator/agent-skills
 
 This project also vendors, unmodified, the standalone browser build of:

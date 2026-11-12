@@ -1,5 +1,5 @@
 #!/bin/sh
-# Keep the Callstack CLIs metrognome drives on @latest. At most once a day, detached,
+# Keep the Callstack CLI metrognome drives (agent-device) on @latest. At most once a day, detached,
 # never blocks or fails session start. Only touches CLIs already installed globally.
 STAMP="${CLAUDE_PLUGIN_ROOT}/.cli-update-stamp"
 
@@ -21,7 +21,7 @@ trap 'rmdir "$STAMP.lock"' EXIT
 
 # Stamp only once every check succeeds; a failure retries after an hour, not a day.
 fail() { touch "$STAMP.fail"; exit 1; }
-for pkg in agent-device agent-react-devtools; do
+for pkg in agent-device; do
   cur=$(npm ls -g --depth=0 "$pkg" 2>/dev/null | grep -o "$pkg@[^ ]*" | cut -d@ -f2)
   [ -n "$cur" ] || continue
   case $cur in *-*) continue ;; esac # ponytail: prerelease/canary installs are left alone; no semver compare

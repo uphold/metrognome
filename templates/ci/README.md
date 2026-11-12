@@ -138,7 +138,7 @@ Actions-created events from cascading. To fix:
 2. Ensure your repo's `package.json` has `react-native` as a dependency.
 3. The emulator runner requires KVM — `ubuntu-latest` on GitHub-hosted runners has KVM
    available since 2024. Self-hosted runners may need `sudo apt-get install qemu-kvm`.
-4. Metro is started on port 8081 and `agent-react-devtools` on port 8097.
+4. Metro is started on port 8081.
    If your app uses a different Metro port, add `--port` to the start command.
 5. Expect the first run to take longer (emulator cold boot ~5 min).
 

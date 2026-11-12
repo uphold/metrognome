@@ -2,7 +2,7 @@
 /**
  * heap_sample.mjs — CDP JS-heap sampler for metrognome
  *
- * Connects to a running Metro/Expo dev server via raw WebSocket CDP (no metro-mcp),
+ * Connects to a running Metro/Expo dev server via raw WebSocket CDP,
  * correctly targeting the live Hermes JS page on New Arch (nativePageReloads:true).
  * Works on iOS Simulator, iOS device, Android emulator/device.
  *

@@ -5,21 +5,22 @@ description: Autonomous, scientific React Native & Expo performance optimization
 
 # metrognome
 
-metrognome routes RN perf work through metro-mcp and Callstack's tools with a strict measurement discipline: propose one fix → measure N times → keep only if the gain beats the noise, else revert. Git is the memory; per-iteration commits enable auto-revert, and the final shape is configurable (per-iteration · one commit · leave staged). It's the RN twin of `webapp-perf-playbook`: delegate measurement, own the catalog + loop, never record an unmeasured fix.
+metrognome routes RN perf work through Callstack's tools with a strict measurement discipline: propose one fix → measure N times → keep only if the gain beats the noise, else revert. Git is the memory; per-iteration commits enable auto-revert, and the final shape is configurable (per-iteration · one commit · leave staged). It's the RN twin of `webapp-perf-playbook`: delegate measurement, own the catalog + loop, never record an unmeasured fix.
 
 ## Scope & Delegation (don't reinvent measurement)
 
-This skill owns the menu, loop, gate, Ledger, Memory, and Perf Map. **Measurement is delegated** to four tools (install/verify via Doctor):
+This skill owns the menu, loop, gate, Ledger, Memory, and Perf Map. **Measurement is delegated** to two tools (install/verify via Doctor):
 
 | Need | Tool | How |
 |---|---|---|
 | Drive the app / simulate a user (open, scroll, press, open↔close cycles) | **agent-device** (CLI) | `agent-device open|scroll|press|snapshot|screenshot …` |
-| Per-component re-render causes, slow renders, commit timeline | **agent-react-devtools** (CLI daemon) | `agent-react-devtools get tree | get component @c1 | profile slow` |
-| Hermes CPU/heap, network, console/exceptions, JS exec, navigation | **metro-mcp** (bundled MCP) | call MCP tools directly — *preferred* for `first-load`; `listing`/`re-renders` run CDP-free if runtime channel is unavailable (see `references/tools.md`) |
+| Per-component re-render causes, slow renders, commit timeline | **agent-device** (`react-devtools`) | `agent-device react-devtools profile start | profile stop | profile report <Component> | inspect @c1` |
+| Hermes JS CPU/heap, JS eval, startup timing | **agent-device** (`cdp`) | `agent-device cdp target select <id>` once, then `cdp runtime eval | memory … | profile cpu …` |
+| OS-level CPU/memory, console logs, bundle reload | **agent-device** (`perf`, `logs`, `metro reload`) | `agent-device perf cpu profile | logs | metro reload` |
 | **JS-heap leak sampling** (`memory-leaks`) — cross-platform incl. iOS Simulator | **`scripts/heap_sample.mjs`** | `node heap_sample.mjs --cycles N` → CSV → `stats.mjs --direction lower --unit bytes` |
 | Which fix to try (the hypothesis) | **react-native-best-practices** (Callstack skill, in the `building-react-native-apps` plugin) | read the guide mapped to the preset — Doctor prints the `guides:` dir; slug `<slug>` = `<guides>/<slug>.md` |
 
-Profiling overlaps (CPU from both metro-mcp and agent-device); pick the best source. **Visual/controlling actions — screenshot, tap, type, swipe, long-press, button press — always route through agent-device**, even though metro-mcp exposes overlapping tools (`take_screenshot`, `tap_element`, `type_text`, …); those are CDP conveniences, not the intended path (see `references/tools.md`). `references/tools.md` has the current command surface — **read it before invoking any tool** and update it when a tool's flags change.
+CPU/memory exist at two layers (JS via `cdp`, OS via `perf`); pick the one the preset gates on. **Visual/controlling actions — screenshot, tap, type, swipe, long-press, button press — always route through agent-device.** `references/tools.md` has the current command surface — **read it before invoking any tool** and update it when a tool's flags change.
 
 **Platform note — one blind spot:** **Displayed-frame FPS** is unavailable on the iOS Simulator (Apple platform constraint — no frame-timing exposed). Every other signal (JS heap, re-renders, longtask jank, startup, CPU/memory) is fully measurable on Simulator. For FPS: use **Flashlight** on Android or **Instruments/XCTest** on a real iOS device.
 
@@ -61,8 +62,8 @@ Run this for an Autoresearch preset. A port of the web playbook's Measure→Diag
    - **Bootstrap:** ensure `.metrognome/` exists (auto-create; never prompt).
    - **Scoped-tracking init:** `preExistingDirty` = paths from `git status --porcelain` before any change. Never staged or reverted by metrognome.
    - **Consolidated run-start prompt** (see below) — one AskUserQuestion with three groups: setup items, commit mode, live report. Wait for response, then proceed.
-   - **Session bring-up (always, silently, before baseline):** verify git state via `parseGitState` (see *Git must be usable* — if not `usable`, print remediation and wait). Then: start Metro if needed; boot/attach simulator or device; **establish a live app session** (sub-protocol below); `agent-react-devtools start` + `wait --connected`; select the live Hermes target from `localhost:8081/json/list`; set `newArchitecture: true` if detected. Healthy session → **read `.metrognome/screen-map.md`, run its `Auth` steps (resolving secrets from `secrets.local.json`), then navigate to the preset's target screen via the matching Route** — before Baseline. On a missing/stale route, escalate per `references/navigation.md`. Escalate only when blocked (see *When to ask*). **`bundle-size` is build-time — skip Metro/session bring-up and navigation.**
-   - **Optional setup** (only when Doctor detected blockers): install missing CLIs or apply flagged setup actions (the Blockers group in the run-start prompt) — live-session bring-up is NOT conditional on the user's choice here.
+   - **Session bring-up (always, silently, before baseline):** verify git state via `parseGitState` (see *Git must be usable* — if not `usable`, print remediation and wait). Then: start Metro if needed; boot/attach simulator or device; **establish a live app session** (sub-protocol below); for presets that use `agent-device cdp` (`first-load`, `listing`'s longtask path), select the live Hermes target (`agent-device cdp target list --url http://127.0.0.1:<port>` → `cdp target select <id>`; on New Arch the `Bridgeless` JS page, not `UI`). `memory-leaks` measures with `heap_sample.mjs` — run `agent-device cdp target clear` before it. Healthy session → **read `.metrognome/screen-map.md`, run its `Auth` steps (resolving secrets from `secrets.local.json`), then navigate to the preset's target screen via the matching Route** — before Baseline. On a missing/stale route, escalate per `references/navigation.md`. Escalate only when blocked (see *When to ask*). **`bundle-size` is build-time — skip Metro/session bring-up and navigation.**
+   - **Optional setup** (only when Doctor detected blockers): install missing or outdated CLIs/plugins (the Blockers group in the run-start prompt) — live-session bring-up is NOT conditional on the user's choice here.
    - **Setup commit** (if `commitMode != no-commit`): `git add <setup paths only — never preExistingDirty>` and commit as `chore(metrognome): setup workspace`. Record `baselineSha = git rev-parse HEAD` (after setup, so loop reverts never touch infra).
    - **Load memory and config:** read `.metrognome/perf-memory.md` for known hotspots; if `.metrognome/playbook.md` exists, read it for measured fix priors (proven wins + dead ends); load `.metrognome/config.json` (`commitMode`, `liveReport`, `runs`, `k`, `budget`).
 2. **Baseline.** Run the preset's measurement **N times** (default N=5; discard one warmup). Compute **mean ± stddev** with `scripts/stats.mjs`. Open a Ledger entry (`assets/ledger.template.md` → `.metrognome/ledger/<timestamp>-<preset>.md`).
@@ -85,7 +86,7 @@ Run this for an Autoresearch preset. A port of the web playbook's Measure→Diag
    - `per-iteration` (default) — leave per-iteration commits as-is.
    - `one-commit` — `git reset --soft <baseline-sha>` then `git commit -m "perf(<preset>): <net-summary> (<n> iterations)"`.
    - `no-commit` — `git reset --soft <baseline-sha>`. Kept changes are **staged but uncommitted** for the user to review and commit.
-9. **Session teardown (always, silently, even on early exit/escalation — and in every mode that ran Session bring-up: Autoresearch, Doctor's live probe, Audit).** `agent-react-devtools stop` — started by bring-up; left running, it stays attached to the RN runtime (port 8097) past the run. Never leave it running. **Do not run `agent-device close`** — it quits the app under test; the agent-device session, runner, and daemon self-idle after 5 minutes. **Never kill metro-mcp** — Claude Code owns one stdio proxy per session and metro-mcp shares one daemon per project (auto-exits 30s after the last session closes); killing it breaks the MCP tools for the rest of the session. (The SessionStart heal hook is the one exception: it reaps only daemons already wedged on a gone device, never mid-run.)
+9. **Session teardown (always, silently, even on early exit/escalation — and in every mode that ran Session bring-up: Autoresearch, Doctor's live probe, Audit).** `agent-device cdp target clear` then `agent-device cdp stop` — the cdp helper daemon otherwise stays attached to the Hermes target (holding the single debugger slot on RN < 0.85) past the run. `agent-device react-devtools` has nothing to stop. **Do not run `agent-device close`** — it quits the app under test; the agent-device session, runner, and daemon self-idle after 5 minutes.
 10. **Report.** Summarize the Ledger and commits. Distill each kept/reverted result into **one line** in `.metrognome/perf-memory.md`.
 
 **Discipline rules:**
@@ -147,28 +148,29 @@ Reasoning corpus (10 anti-pattern entries): **`references/architectural-perf-cat
 Doctor detects what needs fixing; the agent **performs all setup automatically** and presents **one consolidated prompt** (see below).
 
 **What Doctor detects:**
-- **Tools present?** `metro-mcp` is bundled (this plugin's `.mcp.json`). CLIs are `npx`-invocable; install globally with `npm i -g agent-device agent-react-devtools` for speed. Doctor **auto-installs** missing `agent-device` / `agent-react-devtools` (`npm i -g`) and Callstack's `building-react-native-apps` plugin (ships the `react-native-best-practices` skill; `claude plugin install … --scope user`), then prints the guides dir. A just-installed plugin's skill loads next session — read guides from the printed path meanwhile. If an auto-install fails, run the printed command for the user.
-- **Live app session** — probes Metro (`localhost:${port}/json/list`) and the agent-react-devtools daemon (`agent-react-devtools status`); see sub-protocol below. **RN auto-connects on port 8097 — no app code change needed. Never add `import 'agent-react-devtools/connect'`: it is web-only and crashes RN New Arch** (see `references/tools.md`).
-- **New Arch** — detected from `app.json`/`app.config.*` `newArchEnabled` or RN ≥ 0.76 (ships New Arch by default). Sets metro-mcp `newArchitecture: true`.
+- **Tools present?** `agent-device` is `npx`-invocable; install globally with `npm i -g agent-device` for speed. Doctor **auto-installs** a missing `agent-device` (`npm i -g`) and Callstack's `building-react-native-apps` plugin (ships the `react-native-best-practices` skill; `claude plugin install … --scope user`), then prints the guides dir. A just-installed plugin's skill loads next session — read guides from the printed path meanwhile. If an auto-install fails, run the printed command for the user.
+- **Live app session** — probes Metro (`localhost:${port}/json/list`) for a live Hermes target; see sub-protocol below.
+- **React profiling (`re-renders`, `listing`)** — marked unavailable with a one-line reason when the JS engine is JSC, RN < 0.74, or agent-device < 0.21.29; other presets still run.
+- **New Arch** — detected from `app.json`/`app.config.*` `newArchEnabled` or RN ≥ 0.76 (ships New Arch by default); informational (picks the `Bridgeless` page at `cdp target select`).
 - **Pre-existing dirty files** — listed informational; left untouched.
 - **Bootstrap `.metrognome/`** on first run: create `perf-memory.md`, `screen-map.md`, `config.json` (defaults), `ledger/`, `archive/`, `secrets.local.json` (`{}`), `.gitignore` (excludes `report.html`/`run-state.json`/`secrets.local.json`). Memory + screen-map + config + ledger are committed with the app; `secrets.local.json` never is.
 
 **Establish a live app session (run after git-state check, before baseline):**
 
-1. **Probe** — `get_connection_status` (metro-mcp) + `agent-react-devtools status`.
-   - Metro reachable AND ≥1 live Hermes target AND ≥1 agent-react-devtools connected → session OK, proceed. **Never relaunch a healthy session.**
+1. **Probe** — `localhost:${port}/json/list`.
+   - Metro reachable AND ≥1 live Hermes target → session OK, proceed. **Never relaunch a healthy session.**
 2. **Metro down** → run `doctor.mjs --launch-metro` (opens a terminal with the start command, best-effort on macOS); poll `/json/list` until Metro answers. If unavailable or fails, print the start command and ask the user to run it.
-3. **Metro up but app dead** (`cdpConnected:false` or "0 connected") → recover programmatically:
+3. **Metro up but app dead** (0 live Hermes targets) → recover programmatically:
    - Resolve bundle id: `/json/list` `appId` → `screen-map.md` `bundleId` → `agent-device apps` (e.g. `com.metrognome.pulse`).
    - `agent-device open <bundleId> --relaunch` (terminates + relaunches on the booted simulator/device).
-   - Re-probe: `agent-react-devtools wait --connected --timeout 30`.
-   - **Note:** `reload_app` only refreshes a live JS bundle — it does NOT revive a dead session (3× no-op confirmed). Only `--relaunch` or a manual app open revives it.
+   - Re-probe `/json/list` until a live Hermes target appears (≤30s).
+   - **Note:** `agent-device metro reload` only refreshes a live JS bundle — it does NOT revive a dead session (3× no-op confirmed). Only `--relaunch` or a manual app open revives it.
 4. **Auto-recovery unavailable or still dead** (agent-device absent, no booted simulator, headless device) → print **numbered, copy-pasteable** manual steps and wait:
    > 1. Make sure your simulator/device is booted and your app is installed.
    > 2. **Open/foreground the app now** — it must be running in the foreground for a live JS debug session.
-   > 3. (Physical Android) Run: `adb reverse tcp:8097 tcp:8097`
+   > 3. (Android) Make Metro reachable from the device: `adb reverse tcp:8081 tcp:8081`.
    >
-   > Then re-check (`agent-react-devtools wait --connected`).
+   > Then re-check (`localhost:${port}/json/list` shows the app).
 5. **Attach agent-device (always, once the session is OK — even when it was healthy from the start):** bundle id = `appId` of the live target in `localhost:${port}/json/list` (fallback: `screen-map.md` `bundleId`, then `agent-device apps`). Run `agent-device open <bundleId> --platform <ios|android>` — **no `--relaunch`** (idempotent foreground; keeps the current screen) and **never `--foreground`** (agent-device's own runner makes it ambiguous). If the output flags a React Native overlay, `agent-device react-native dismiss-overlay`. Interaction rules: `references/navigation.md` → *Interaction rules*.
 
 **Once the session is healthy:** authenticate and navigate to the target screen via `.metrognome/screen-map.md` before Baseline — see **Navigation Memory** below and `references/navigation.md`.
@@ -180,13 +182,11 @@ Doctor detects what needs fixing; the agent **performs all setup automatically**
 **Agent only asks when it cannot proceed:**
 - No simulator/device exists and creating one requires interactive setup (no Xcode/Android SDK, no AVD).
 - App isn't built/installed and the build requires input the agent lacks (signing credentials, interactive native build prompt).
-- A user-owned RN DevTools/Fusebox browser holds the single CDP slot **and** the preset needs metro-mcp's runtime channel (`first-load`, `memory-leaks`). The agent cannot close a browser tab.
+- A user-owned RN DevTools/Fusebox browser holds the single CDP slot **and** the preset needs the debugger channel (every preset except `bundle-size`; react-devtools reports `tree-unavailable`). The agent cannot close a browser tab.
 
-**CDP — do NOT open the JS Debugger:** The Hermes target appears on `localhost:8081/json/list` automatically — no action needed. Opening RN DevTools / Fusebox (Cmd+D → "Open JS Debugger") holds the **single CDP slot** (RN < 0.85) and blocks metro-mcp runtime calls. Never instruct the user to open the debugger. `listing` and `re-renders` are CDP-free. See `references/tools.md`.
+**CDP — do NOT open the JS Debugger:** The Hermes target appears on `localhost:8081/json/list` automatically — no action needed. Opening RN DevTools / Fusebox (Cmd+D → "Open JS Debugger") holds the **single CDP slot** (RN < 0.85) and blocks `agent-device cdp` / `react-devtools`. Never instruct the user to open the debugger. Never run `heap_sample.mjs` concurrently with `agent-device cdp` / `react-devtools`. See `references/tools.md`.
 
-**On Expo / New Arch:** `newArchitecture: true` is auto-detected (see above). `listing` and `re-renders` degrade gracefully to the CDP-free path — see `references/tools.md`. (connect-import and CDP rules: see Live app session bullet above.)
-
-**On JSC engine:** `first-load` and `memory-leaks` (need Hermes CDP) are unavailable. Route to `bundle-size`, `listing`, or `re-renders`; or use `agent-device` perf samples for device-level timing.
+**On JSC engine:** `first-load`, `memory-leaks` (need Hermes CDP), `listing`, and `re-renders` (React profiling needs Hermes) are unavailable. Route to `bundle-size`; or use `agent-device` perf samples for device-level timing.
 
 **On multiple devices:** metrognome targets the first booted/connected one. When the target bundle id is resolvable, confirm the app in foreground matches before starting baseline (wrong app = wrong baseline).
 
@@ -198,7 +198,7 @@ Present **one** AskUserQuestion (or compact numbered menu), with up to three gro
 
 | Group | Question | Options |
 |---|---|---|
-| **Blockers** *(only when optional setup items were detected — missing CLIs, metro-mcp config changes)* | "Fix the optional setup items?" | Yes, fix & proceed (default) · Skip — I'll handle them · Show me what will change |
+| **Blockers** *(only when optional setup items were detected — missing CLIs or plugins)* | "Fix the optional setup items?" | Yes, fix & proceed (default) · Skip — I'll handle them · Show me what will change |
 | **Commit mode** | "Commit shape?" | Commit each kept fix — `per-iteration` (default) · One commit at the end · Don't commit — leave staged |
 | **Live report** | "Live HTML dashboard?" | Off (default) · On — write `.metrognome/report.html` |
 
@@ -278,7 +278,7 @@ If `openReport` is `true`, open `report.html` once at run start (auto-refreshes 
 ## Reference index
 
 - `references/presets.md` — the 5 presets: trigger, drive, measure, guide, candidate fixes.
-- `references/tools.md` — agent-device / agent-react-devtools / metro-mcp cheatsheets + routing. **Read before invoking a tool.**
+- `references/tools.md` — agent-device / react-native-best-practices cheatsheets + routing. **Read before invoking a tool.**
 - `references/measurement.md` — N-run protocol, gate math, why single samples lie.
 - `references/perf-map.md` — detectors, scoring, signal-vs-noise gating, Top-3 format.
 - `references/memory.md` — Memory entry format, read/append/compaction policy.

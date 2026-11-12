@@ -2,33 +2,33 @@
 
 Five presets. Each: **Metric** · **Drive** (agent-device) · **Measure** (tool) · **Diagnose** (react-native-best-practices guide slug — Doctor prints the `guides:` dir; slug `<slug>` = `<guides>/<slug>.md`) · **Candidate fixes** (try one at a time, gate each). Always run the N-run protocol in `measurement.md`; never stack fixes. `--target <Screen/Component>` names the focus; if omitted, ask or infer from the Perf Map Top-3 / Performance Memory.
 
-## `first-load` — cold-start / TTI
+## `first-load` — cold start
 
 - **Prerequisites:** Metro running, ≥1 Hermes target, live app session, git `usable`. **Hermes required** — CDP heap/CPU profiling unavailable on JSC (launch timing still works, less signal). See engine matrix in `references/tools.md`.
-- **Metric:** time-to-interactive from cold launch (lower is better).
-- **Drive:** `agent-device open <App>` from cold start; time until first interactive frame.
-- **Measure:** metro-mcp profiler (Hermes CPU profile) + agent-device launch timing; inspect CPU profile for dominant startup cost.
+- **Metric:** startup time from cold launch — native start → JS bundle executed (`performance.rnStartupTiming`, lower is better). It does not include the first screen's mount/render.
+- **Drive:** `agent-device open <App> --relaunch` (cold start).
+- **Measure:** per cold run: `agent-device open <App> --relaunch` → `cdp target list` + `cdp target select <id>` (the target id changes on every relaunch — re-list and re-select each run) → `agent-device cdp runtime eval --expr '(t=>JSON.stringify({startTime:t.startTime,initializeRuntimeStart:t.initializeRuntimeStart,executeJavaScriptBundleEntryPointStart:t.executeJavaScriptBundleEntryPointStart,endTime:t.endTime,startupMs:t.endTime-t.startTime}))(performance.rnStartupTiming)'`. **Gate on `startupMs`** (`--direction lower --unit ms`). `JSON.stringify(performance.rnStartupTiming)` alone returns `{}` (fields are prototype getters). **Bundle evaluation at startup cannot be CPU-profiled** — `cdp profile cpu` only starts once the app is running; use it for post-launch work (e.g. first screen mount).
 - **Diagnose:** RN best-practices **bundle-code-splitting** + **js** startup.
 - **Candidate fixes:** lazy-load non-home screens (`React.lazy` / dynamic `import()`); defer heavy top-level imports; trim/inline-config fonts; on Android, disable JS bundle compression (Hermes mmaps the uncompressed bundle → faster startup); move work out of module top-level into post-interaction.
 
 ## `listing` — scroll jank
 
-- **Prerequisites:** Metro running, live app session, git `usable`. CDP-free (agent-react-devtools + agent-device) — Hermes and JSC. **Displayed-frame FPS not available on iOS Simulator** (Apple constraint — see `references/tools.md` matrix); use Android/Flashlight or real iOS device for FPS.
+- **Prerequisites:** Metro running, live app session, git `usable`. `agent-device react-devtools` (Metro debugger channel) — **Hermes, RN ≥ 0.74, agent-device ≥ 0.21.29** (Doctor marks it unavailable otherwise). **Displayed-frame FPS not available on iOS Simulator** (Apple constraint — see `references/tools.md` matrix); use Android/Flashlight or real iOS device for FPS.
 - **Metric:** JS-thread jank / wasted re-renders during sustained scroll (lower is better). JS-side signals (re-renders, longtask, CPU profile) work on Simulator.
 - **Drive:** `agent-device scroll` continuously on the target list.
-- **Measure (CDP-free — Expo incl. iOS Simulator):** `agent-react-devtools profile start` → scroll → `profile stop` → `profile slow` / `profile rerenders`; `agent-device perf memory sample` / `perf cpu profile` for OS stats (**`perf frames` only meaningful on Android/device**). On Android or real iOS device, add Flashlight for FPS+CPU+RAM. Correlate with Hermes CPU profile if metro-mcp available (see `references/tools.md`).
-- **Gate on iOS Simulator:** re-render commit count (`profile rerenders`) or longtask — `stats.mjs --direction lower --unit ms`, `min-effect` ≈ 20 ms.
+- **Measure (Expo incl. iOS Simulator):** `agent-device react-devtools profile start` → scroll → `profile stop` (commit count + ranked findings) → `profile report <Component>` / `profile commit <N>` to diagnose; `agent-device perf memory sample` / `perf cpu profile` for OS stats (**`perf frames` only meaningful on Android/device**). On Android or real iOS device, add Flashlight for FPS+CPU+RAM. Correlate with a Hermes JS CPU profile (`agent-device cdp profile cpu start` → scroll → `stop` → `hotspots`) when the cause is not a render.
+- **Gate on iOS Simulator:** commit count from `profile stop` — `stats.mjs --direction lower --unit commits --min-effect 1`; or longtask `totalMs` (recipe: `references/tools.md` → *JS runtime*) — `--direction lower --unit ms`, `min-effect` ≈ 20 ms.
 - **Gate on Android / iOS device:** FPS from Flashlight / agent-device, `min-effect` ≈ 2–3 fps, `--direction higher`.
 - **Diagnose:** RN best-practices **js-lists-flatlist-flashlist** + FlashList migration guide.
 - **Candidate fixes:** add `getItemLayout`; stable `keyExtractor` (never array index); `React.memo` the row + memoize its props; tune `initialNumToRender` / `windowSize` / `maxToRenderPerBatch`; `removeClippedSubviews`; migrate to **FlashList** if list is large and heterogeneous.
 
 ## `memory-leaks` — RAM stability
 
-- **Prerequisites:** Metro running, ≥1 Hermes target, live app session, git `usable`. **Hermes required** (`heap_sample.mjs` uses Hermes CDP) — if JSC detected, route to `bundle-size` or `listing`.
+- **Prerequisites:** Metro running, ≥1 Hermes target, live app session, git `usable`. **Hermes required** (`heap_sample.mjs` uses Hermes CDP) — if JSC detected, route to `bundle-size`.
 - **Metric:** JS-heap growth across open↔close cycles; should return to baseline after GC — sustained growth = leak. Works on iOS Simulator, iOS device, Android.
 - **Drive:** `agent-device` cyclic open/close ×N (e.g. 10 cycles) via a `.ad` replay script.
 - **Measure (primary — cross-platform incl. iOS Simulator):** `heap_sample.mjs --once` per cycle; or `heap_sample.mjs --cycles N` for a GC-bracketed series. Output: comma-separated `usedSize` for `stats.mjs`. Each reading: `HeapProfiler.collectGarbage` → 400 ms → `Runtime.getHeapUsage` → record `usedSize`. Leak = `usedSize` never returns to baseline after GC. **Note:** `getHeapUsage` tracks the Hermes JS-object heap only (TypedArray buffers separate); native leaks won't appear.
-- **Measure (alternative):** metro-mcp `start_heap_sampling` / `stop_heap_sampling` — allocation-site breakdown to identify *which* objects are leaking. See `references/tools.md` for CDP gotchas.
+- **Measure (alternative):** `agent-device cdp memory usage sample --gc` / `usage leak-signal`; to find *which* objects leak, `cdp memory snapshot capture` (baseline · action · cleanup) → `snapshot leak-triplet` / `retainers`, or `cdp memory allocation start|stop|hotspots` for allocation sites. Never run concurrently with `heap_sample.mjs`; read `jm_N`/`ms_N` IDs from output (see `references/tools.md`).
 - **Gate:** `stats.mjs --direction lower --unit bytes --min-effect 2000000 --k 2` (2 MB floor; lower to e.g. 500000 for a small targeted leak). `--baseline` from before, `--candidate` from after.
 - **Diagnose:** RN best-practices **js-memory-leaks**.
 - **Candidate fixes:** return cleanup from `useEffect` (remove listeners, `clearInterval`/`clearTimeout`); cancel in-flight requests/subscriptions on unmount; avoid capturing large closures in long-lived refs; detach native event emitters.
@@ -44,10 +44,10 @@ Five presets. Each: **Metric** · **Drive** (agent-device) · **Measure** (tool)
 
 ## `re-renders` — wasted commits
 
-- **Prerequisites:** Metro running, live app session, git `usable`. `agent-react-devtools` daemon on port 8097, ≥1 app connected. CDP-free — Hermes and JSC.
+- **Prerequisites:** Metro running, live app session, git `usable`. `agent-device react-devtools` (Metro debugger channel) — **Hermes, RN ≥ 0.74, agent-device ≥ 0.21.29** (Doctor marks it unavailable otherwise).
 - **Metric:** wasted/excessive re-renders on the target screen (lower is better).
 - **Drive:** `agent-device` interactions on the target screen (those that feel laggy).
-- **Measure:** `profile rerenders` and `profile slow`; `get component @cN` to inspect why props change. Verify with `profile diff` before/after.
+- **Measure:** `agent-device react-devtools profile start` → interaction → `profile stop`; gate on its commit count (`stats.mjs --direction lower --unit commits --min-effect 1`). Diagnose with `profile report <Component>` / `profile commit <N>`; `react-devtools inspect @cN` to see why props change. Verify a fix by repeating the same start → interaction → stop and comparing.
 - **Diagnose:** RN best-practices **js-profile-react** + **js-react-compiler**.
 - **Candidate fixes:** memoize handlers (`useCallback`) and derived values (`useMemo`); `React.memo` pure children; hoist static styles out of render; split oversized contexts; stop defining components inside components.
 

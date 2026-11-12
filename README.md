@@ -109,9 +109,9 @@ Installed-plugin path: `${CLAUDE_PLUGIN_ROOT}/skills/metrognome/scripts/<script>
 
 ## How it works
 
-![metrognome orchestration — the conductor, metro-mcp, and three Callstack tools](docs/diagrams/orchestration.png)
+![metrognome orchestration — the conductor and two Callstack tools](docs/diagrams/orchestration.png)
 
-metrognome routes each measurement to the right tool, then owns the loop, the gate, the ledger, the memory, and the map. agent-device, agent-react-devtools, and react-native-best-practices are independent open-source projects by **Callstack**; metro-mcp is an independent open-source project. metrognome conducts them — it does not bundle or modify them. See [Attribution](#attribution).
+metrognome routes each measurement to the right tool, then owns the loop, the gate, the ledger, the memory, and the map. agent-device and react-native-best-practices are independent open-source projects by **Callstack**. metrognome conducts them — it does not bundle or modify them. See [Attribution](#attribution).
 
 ### How the loop stays honest
 
@@ -147,10 +147,10 @@ See [`templates/ci/README.md`](templates/ci/README.md) for setup, cost, and gotc
 - **Clean git tree required** — git is the experiment log; auto-revert needs a clean baseline. Doctor refuses to run dirty.
 - **Perf Map + stats are device-free.** The live loop needs a simulator/emulator/device + a running Metro session.
 - **`bundle-size` runs headless** (CI-friendly). `listing`, `re-renders`, `memory-leaks`, `first-load` need a live device or simulator.
-- **Live-loop toolchain** (installed via Doctor): `agent-device`, `agent-react-devtools`, `metro-mcp` (bundled), `react-native-best-practices` (via Callstack's `building-react-native-apps` plugin) — Doctor auto-installs anything missing.
+- **Live-loop toolchain** (installed via Doctor): `agent-device`, `react-native-best-practices` (via Callstack's `building-react-native-apps` plugin) — Doctor auto-installs anything missing.
 - **Discipline:** one variable per iteration; never record an unmeasured fix.
 
-For iOS Simulator FPS limits, RN < 0.85 CDP constraints, and Expo/New Arch timeout workarounds: see [COMPATIBILITY.md](./COMPATIBILITY.md).
+For iOS Simulator FPS limits and RN < 0.85 CDP constraints: see [COMPATIBILITY.md](./COMPATIBILITY.md).
 
 ---
 
@@ -158,7 +158,6 @@ For iOS Simulator FPS limits, RN < 0.85 CDP constraints, and Expo/New Arch timeo
 
 ```
 .claude-plugin/      plugin.json + marketplace.json (self-installable)
-.mcp.json            bundles metro-mcp
 commands/            /metrognome entrypoint
 hooks/               SessionStart (npm install + daily CLI auto-update) + UserPromptSubmit (perf-memory nudge)
 skills/metrognome/
@@ -183,11 +182,9 @@ In the target RN repo, Doctor bootstraps:
 
 ## Attribution
 
-metrognome orchestrates these independent open-source tools. agent-device, agent-react-devtools, and react-native-best-practices are by **Callstack**; metro-mcp is by its own contributors. None are bundled or modified here; all trademarks and copyrights belong to their owners.
+metrognome orchestrates these independent open-source tools. agent-device and react-native-best-practices are by **Callstack**. None are bundled or modified here; all trademarks and copyrights belong to their owners.
 
-- **metro-mcp** — MCP server bridging Metro via CDP — https://www.npmjs.com/package/metro-mcp
-- **agent-device** — device-driving CLI — https://www.npmjs.com/package/agent-device
-- **agent-react-devtools** — React telemetry CLI daemon — https://www.npmjs.com/package/agent-react-devtools
+- **agent-device** — device-driving CLI (incl. its React DevTools client) — https://www.npmjs.com/package/agent-device
 - **react-native-best-practices** — perf knowledge base, shipped in the `building-react-native-apps` plugin — https://github.com/callstackincubator/agent-skills
 
 The Perf Map vendors, unmodified, the offline browser build of **3d-force-graph** by Vasco Asturiano (MIT) — https://github.com/vasturiano/3d-force-graph (license in `skills/metrognome/assets/3d-force-graph.LICENSE`).
